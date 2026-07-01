@@ -85,6 +85,11 @@ export function DrawButton({ prizeId }: { prizeId: string }) {
     ? result.candidates.map((c, i) => ({ key: c.userId, label: c.name, color: WHEEL_COLORS[i % WHEEL_COLORS.length] }))
     : [];
 
+  // Winner's true odds = their entry weight / total entry weight in the pool.
+  const totalWeight = result ? result.candidates.reduce((s, c) => s + c.weight, 0) : 0;
+  const winnerWeight = result ? result.candidates.find((c) => c.userId === result.winnerId)?.weight ?? 0 : 0;
+  const winnerChance = totalWeight > 0 ? Math.round((winnerWeight / totalWeight) * 100) : 0;
+
   return (
     <span>
       <button className="btn-primary px-3 py-1 text-xs" disabled={pending} onClick={launch}>
@@ -98,6 +103,7 @@ export function DrawButton({ prizeId }: { prizeId: string }) {
             {revealed && <Confetti />}
             <div className="relative text-xs font-bold uppercase tracking-wide text-brand-600">Lucky Draw</div>
             <h2 className="relative mt-1 text-lg font-bold text-ink">🎁 {result.prizeName}</h2>
+            <p className="relative text-xs text-ink-muted">{result.candidates.length} eligible {result.candidates.length === 1 ? "entrant" : "entrants"} in the draw</p>
 
             <div className="relative mt-4">
               <SpinWheel
@@ -115,6 +121,7 @@ export function DrawButton({ prizeId }: { prizeId: string }) {
                   <Avatar name={result.winnerName} color={result.winnerAvatarColor} size={32} />
                   <span className="text-xl font-bold text-ok">{result.winnerName} 🎉</span>
                 </div>
+                <p className="mt-1 text-xs text-ink-muted">Won fairly with a {winnerChance}% chance</p>
                 <button className="btn-primary mt-5 w-full" onClick={close}>Done</button>
               </div>
             ) : (

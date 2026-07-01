@@ -21,10 +21,20 @@ export interface BadgeRoadmapItem {
  * caller decides the order; this component only renders it as a connected rail
  * with earned / next-up / locked states.
  */
+/** Relative rarity label + pill style, based on how many teammates hold a badge. */
+function rarity(earnedCount: number, maxEarned: number): { label: string; className: string } {
+  if (earnedCount === 0) return { label: "Unclaimed", className: "bg-amber-100 text-amber-700" };
+  const ratio = maxEarned > 0 ? earnedCount / maxEarned : 0;
+  if (ratio >= 0.6) return { label: "Common", className: "bg-slate-100 text-slate-600" };
+  if (ratio >= 0.25) return { label: "Rare", className: "bg-indigo-100 text-indigo-700" };
+  return { label: "Legendary", className: "bg-fuchsia-100 text-fuchsia-700" };
+}
+
 export function BadgeRoadmap({ items }: { items: BadgeRoadmapItem[] }) {
   const total = items.length;
   const earnedTotal = items.filter((b) => b.earned).length;
   const pct = total > 0 ? Math.round((earnedTotal / total) * 100) : 0;
+  const maxEarned = items.reduce((m, b) => Math.max(m, b.earnedCount), 0);
   // The first not-yet-earned badge along the trail is highlighted as "next up".
   const nextUpId = items.find((b) => !b.earned)?.id ?? null;
 
@@ -50,6 +60,7 @@ export function BadgeRoadmap({ items }: { items: BadgeRoadmapItem[] }) {
         {items.map((b, i) => {
           const isNext = b.id === nextUpId;
           const isLast = i === items.length - 1;
+          const rar = rarity(b.earnedCount, maxEarned);
           return (
             <li key={b.id} className="relative flex gap-3">
               {/* Rail: node + connecting line */}
@@ -78,6 +89,7 @@ export function BadgeRoadmap({ items }: { items: BadgeRoadmapItem[] }) {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-ink">{b.name}</span>
+                  <span className={`badge ${rar.className}`}>{rar.label}</span>
                   {b.earned && <span className="badge bg-green-100 text-green-700">Earned{b.earnedDate ? ` · ${b.earnedDate}` : ""}</span>}
                   {!b.earned && isNext && <span className="badge bg-brand-100 text-brand-700">Next up</span>}
                 </div>
