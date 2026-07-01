@@ -29,7 +29,7 @@ export function TeamGrowthTable({ rows }: { rows: TeamGrowthRowVM[] }) {
           <tr className="border-b border-slate-200 text-left text-xs uppercase text-ink-muted">
             <th className="px-3 py-2">Staff</th><th className="px-3">Department</th><th className="px-3">Current Level</th>
             <th className="px-3">Next Level</th><th className="px-3">Progress</th><th className="px-3">Missing</th>
-            <th className="px-3 text-right">Badges</th><th className="px-3 text-right">Points</th><th className="px-3">Grade</th><th className="px-3"></th>
+            <th className="px-3 text-right">Badges</th><th className="px-3 text-right">Diamonds</th><th className="px-3">Grade</th><th className="px-3"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">

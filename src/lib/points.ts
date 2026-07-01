@@ -24,11 +24,19 @@ export async function awardPoints(
     generatedBy?: string;
     internalNote?: string;
     status?: string;
+    // Diamond Authority module: richer classification + wallet snapshot.
+    transactionType?: string;
+    balanceBefore?: number;
+    balanceAfter?: number;
+    departmentId?: string;
+    approvedBy?: string;
+    relatedTransactionId?: string;
+    effectiveDate?: Date;
   },
-) {
+): Promise<string> {
   const period = args.period ?? currentPeriod();
 
-  await db.pointsTransaction.create({
+  const tx = await db.pointsTransaction.create({
     data: {
       userId: args.userId,
       amount: args.amount,
@@ -40,11 +48,20 @@ export async function awardPoints(
       generatedBy: args.generatedBy,
       internalNote: args.internalNote,
       status: args.status ?? "APPROVED",
+      transactionType: args.transactionType,
+      balanceBefore: args.balanceBefore,
+      balanceAfter: args.balanceAfter,
+      departmentId: args.departmentId,
+      approvedBy: args.approvedBy,
+      relatedTransactionId: args.relatedTransactionId,
+      effectiveDate: args.effectiveDate,
       period,
     },
+    select: { id: true },
   });
 
   await recomputeWallet(db, args.userId);
+  return tx.id;
 }
 
 /** Recompute wallet aggregate columns + growth level from the ledger. */
@@ -62,11 +79,15 @@ export async function recomputeWallet(db: Db, userId: string) {
   for (const t of txns) {
     current += t.amount;
     if (t.amount > 0) lifetime += t.amount;
-    if (t.type === "PENALTY" && t.amount < 0) deducted += Math.abs(t.amount);
-    if (t.type === "REDEMPTION" && t.amount < 0) redeemed += Math.abs(t.amount);
+    // Redemptions are tracked separately; every other negative entry (penalty,
+    // owner deduction/adjustment, reversal of an earn) counts as "deducted".
+    if (t.amount < 0) {
+      if (t.type === "REDEMPTION") redeemed += Math.abs(t.amount);
+      else deducted += Math.abs(t.amount);
+    }
     if (t.period === period) {
       if (t.amount > 0) monthlyEarned += t.amount;
-      else if (t.type === "PENALTY") monthlyDeducted += Math.abs(t.amount);
+      else if (t.type !== "REDEMPTION") monthlyDeducted += Math.abs(t.amount);
     }
   }
 

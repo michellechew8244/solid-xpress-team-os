@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { currentPeriod, growthLevelName } from "@/lib/enums";
 import { dateTime } from "@/lib/format";
-import { Card, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
+import { Card, PageHeader, SectionTitle, StatCard } from "@/components/ui";
 
 export default async function WalletPage({ searchParams }: { searchParams: Promise<{ source?: string }> }) {
   const user = await getCurrentUser();
@@ -11,26 +11,32 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   const { source } = await searchParams;
   const onboardingOnly = source === "NEW_ONBOARDING";
 
-  const [txns, monthEarned] = await Promise.all([
+  const [txns, monthEarned, ownerBonus] = await Promise.all([
     prisma.pointsTransaction.findMany({
       where: { userId: user.id, ...(onboardingOnly ? { sourceType: "NEW_ONBOARDING" } : {}) },
       orderBy: { createdAt: "desc" }, take: 50,
     }),
     prisma.pointsTransaction.aggregate({ where: { userId: user.id, period, amount: { gt: 0 } }, _sum: { amount: true } }),
+    prisma.pointsTransaction.aggregate({ where: { userId: user.id, transactionType: "OWNER_GENERATE", amount: { gt: 0 } }, _sum: { amount: true } }),
   ]);
 
   return (
     <>
-      <PageHeader title="Points Wallet" subtitle={`Level ${user.officialLevel} · ${growthLevelName(user.officialLevel)}`} />
+      <PageHeader title="Diamond Wallet" subtitle={`Level ${user.officialLevel} · ${growthLevelName(user.officialLevel)}`} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Available Balance" value={user.currentPoints.toLocaleString()} icon="💎" />
+        <StatCard label="Diamond Balance" value={user.currentPoints.toLocaleString()} icon="💎" />
         <StatCard label="Earned This Month" value={(monthEarned._sum.amount ?? 0).toLocaleString()} icon="📅" rag="ok" />
-        <StatCard label="Lifetime Points" value={user.lifetimePoints.toLocaleString()} icon="🏆" rag="neutral" />
-        <StatCard label="Points Deducted" value={user.deductedPoints.toLocaleString()} icon="⚠️" rag={user.deductedPoints ? "warn" : "ok"} />
-        <StatCard label="Redeemed" value={user.redeemedPoints.toLocaleString()} icon="🎁" rag="neutral" />
-        <StatCard label="Growth Level" value={`Lv.${user.officialLevel}`} sub={growthLevelName(user.officialLevel)} icon="🚀" rag="neutral" />
+        <StatCard label="Diamond Earned" value={user.lifetimePoints.toLocaleString()} icon="🏆" rag="neutral" />
+        <StatCard label="Diamond Deducted" value={user.deductedPoints.toLocaleString()} icon="⚠️" rag={user.deductedPoints ? "warn" : "ok"} />
+        <StatCard label="Diamond Redeemed" value={user.redeemedPoints.toLocaleString()} icon="🎁" rag="neutral" />
+        <StatCard label="Owner Bonus" value={(ownerBonus._sum.amount ?? 0).toLocaleString()} icon="💠" rag="neutral" />
       </div>
+
+      <p className="mt-4 text-xs text-ink-muted">
+        Diamonds are earned through performance, contribution, teamwork and recognition.
+        Owner-generated diamonds are special rewards issued by management.
+      </p>
 
       <Card className="mt-6 p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-2">

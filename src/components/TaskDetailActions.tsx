@@ -51,7 +51,7 @@ export function WorkflowButtons({
         <div className="rounded-lg border border-brand-200 bg-brand-50 p-3">
           <div className="mb-2 text-xs font-semibold uppercase text-brand-700">Reviewer actions</div>
           <div className="flex flex-wrap gap-2">
-            <button className="btn-primary" disabled={pending} onClick={() => start(() => approveTask(taskId))}>✅ Approve & award points</button>
+            <button className="btn-primary" disabled={pending} onClick={() => start(() => approveTask(taskId))}>✅ Approve & award diamonds</button>
             <button className="btn-danger" disabled={pending} onClick={() => setShowReject((s) => !s)}>↩ Reject</button>
           </div>
           {showReject && (

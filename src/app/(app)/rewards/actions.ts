@@ -74,9 +74,12 @@ export async function decideRedemption(redemptionId: string, approve: boolean) {
         userId: redemption.userId,
         amount: -redemption.pointsSpent,
         type: "REDEMPTION",
+        transactionType: "REDEEM",
+        sourceType: "REWARD",
         reason: `Redeemed: ${redemption.reward.name}`,
         refType: "REWARD",
         refId: redemption.rewardId,
+        approvedBy: session.id,
       });
       // Decrement finite stock (-1 = unlimited).
       if (redemption.reward.stock > 0) {

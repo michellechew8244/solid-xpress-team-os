@@ -28,7 +28,7 @@ export default async function RewardsPage() {
 
   return (
     <>
-      <PageHeader title="Reward Store" subtitle={`Your balance: ${user.currentPoints.toLocaleString()} points 💎`} />
+      <PageHeader title="Reward Store" subtitle={`Your balance: ${user.currentPoints.toLocaleString()} Diamonds 💎`} />
 
       {isApprover && pendingQueue.length > 0 && (
         <Card className="mb-6 border-l-4 border-l-warn">
@@ -40,7 +40,7 @@ export default async function RewardsPage() {
                   <Avatar name={r.user.name} color={r.user.avatarColor} size={28} />
                   <div>
                     <div className="text-sm font-semibold">{r.user.name}</div>
-                    <div className="text-xs text-ink-muted">{r.reward.imageEmoji} {r.reward.name} · {r.pointsSpent} pts</div>
+                    <div className="text-xs text-ink-muted">{r.reward.imageEmoji} {r.reward.name} · {r.pointsSpent} Diamonds</div>
                   </div>
                 </div>
                 <RedemptionDecision id={r.id} />
@@ -58,7 +58,7 @@ export default async function RewardsPage() {
             <div className="text-xs text-ink-muted">{r.description}</div>
             <div className="mt-1 text-xs"><Pill value="OK" label={r.category.replace(/_/g, " ")} /></div>
             <div className="mt-3 flex items-center justify-between">
-              <span className="text-lg font-bold text-brand-700">{r.pointsCost.toLocaleString()} <span className="text-xs font-normal text-ink-muted">pts</span></span>
+              <span className="text-lg font-bold text-brand-700">{r.pointsCost.toLocaleString()} <span className="text-xs font-normal text-ink-muted">Diamonds</span></span>
             </div>
             <div className="mt-2">
               <RedeemButton rewardId={r.id} cost={r.pointsCost} balance={user.currentPoints} blockedReason={r.category === "EXTRA_LEAVE" ? leaveBlock : null} />

@@ -97,7 +97,7 @@ export function BadgeRoadmap({ items }: { items: BadgeRoadmapItem[] }) {
                 <p className="mt-1 text-[11px] text-ink-muted">🎯 {b.criteria}</p>
                 {b.earned && b.note && <p className="mt-1 text-[11px] italic text-ink-muted">“{b.note}”</p>}
                 <p className="mt-1 text-[11px] text-ink-muted">
-                  +{b.pointsBonus} pts · {b.departmentEligibility === "ALL" ? "All departments" : b.departmentEligibility} · {b.earnedCount} earned
+                  +{b.pointsBonus} 💎 diamond bonus · {b.departmentEligibility === "ALL" ? "All departments" : b.departmentEligibility} · {b.earnedCount} earned
                 </p>
               </div>
             </li>

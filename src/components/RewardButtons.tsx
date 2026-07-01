@@ -36,7 +36,7 @@ export function RedeemButton({
           })
         }
       >
-        {pending ? "…" : blocked ? "🔒 Leave blocked" : affordable ? "Redeem" : "Not enough points"}
+        {pending ? "…" : blocked ? "🔒 Leave blocked" : affordable ? "Redeem" : "Not enough diamonds"}
       </button>
       {blockedReason && <div className="mt-1 text-center text-xs text-amber-600">{blockedReason}</div>}
       {msg && <div className="mt-1 text-center text-xs text-ink-muted">{msg}</div>}

@@ -86,7 +86,7 @@ export function LevelRoadmapModal({
           </div>
         )}
         {rule.bonusPoints > 0 && (
-          <p className="mt-2 text-xs text-ink-muted">🎁 +{rule.bonusPoints} bonus points on upgrade{approvalNote ? ` (${approvalNote})` : ""}</p>
+          <p className="mt-2 text-xs text-ink-muted">🎁 +{rule.bonusPoints} bonus diamonds on upgrade{approvalNote ? ` (${approvalNote})` : ""}</p>
         )}
 
         <button className="btn-ghost mt-5 w-full" onClick={onClose}>Close</button>

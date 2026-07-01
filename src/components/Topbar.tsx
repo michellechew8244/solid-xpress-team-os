@@ -20,7 +20,7 @@ export async function Topbar({
 
       <div className="flex items-center gap-3">
         <div className="hidden rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 sm:block">
-          💎 {user.currentPoints.toLocaleString()} pts
+          💎 {user.currentPoints.toLocaleString()} Diamonds
         </div>
         <div className="hidden rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 sm:block">
           Lv.{user.officialLevel} · {growthLevelName(user.officialLevel)}

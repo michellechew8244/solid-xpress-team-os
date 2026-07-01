@@ -41,7 +41,7 @@ export async function DeptDashboard({ departmentId }: { departmentId: string | n
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Department Score" value={deptScore} sub="avg monthly grade" rag={deptScore >= 80 ? "ok" : deptScore >= 70 ? "warn" : "danger"} icon="🏁" />
         <StatCard label="Department KPI" value={`${avgKpi}%`} rag={ragFromPct(avgKpi)} sub={dept?.name} icon="📈" />
-        <StatCard label="Points Earned" value={pointsEarned.toLocaleString()} sub={`${pointsDeducted} deducted`} rag="ok" icon="💎" />
+        <StatCard label="Diamonds Earned" value={pointsEarned.toLocaleString()} sub={`${pointsDeducted} deducted`} rag="ok" icon="💎" />
         <StatCard label="Team Size" value={staff.length} sub={`${todayReports.length}/${staff.filter((s) => s.role === "STAFF").length} reported today`} icon="👥" rag="neutral" />
       </div>
 
@@ -68,7 +68,7 @@ export async function DeptDashboard({ departmentId }: { departmentId: string | n
                   <div className="truncate text-sm font-semibold">{s.name}</div>
                   <div className="truncate text-xs text-ink-muted">{s.jobTitle}</div>
                 </div>
-                <span className="text-sm font-semibold text-brand-700">{s.currentPoints} pts</span>
+                <span className="text-sm font-semibold text-brand-700">{s.currentPoints} 💎</span>
               </div>
             ))}
           </div>

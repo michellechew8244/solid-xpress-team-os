@@ -40,11 +40,11 @@ export default async function PointsAdminPage() {
 
   return (
     <>
-      <PageHeader title="Points Admin" subtitle="Apply penalties, award recognition, and adjust points (with approval)" />
+      <PageHeader title="Diamond Admin" subtitle="Apply penalties, award recognition, and adjust diamonds (with approval)" />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card className="border-l-4 border-l-ok"><div className="text-xs uppercase text-ink-muted">Recognition issued (month)</div><div className="text-2xl font-bold text-ok">+{totalIssued}</div></Card>
-        <Card className="border-l-4 border-l-danger"><div className="text-xs uppercase text-ink-muted">Points deducted (month)</div><div className="text-2xl font-bold text-danger">-{totalDeducted}</div></Card>
+        <Card className="border-l-4 border-l-danger"><div className="text-xs uppercase text-ink-muted">Diamonds deducted (month)</div><div className="text-2xl font-bold text-danger">-{totalDeducted}</div></Card>
         <Card className="border-l-4 border-l-warn"><div className="text-xs uppercase text-ink-muted">Red-line cases</div><div className="text-2xl font-bold text-warn">{redLines.length}</div></Card>
       </div>
 
@@ -96,7 +96,7 @@ export default async function PointsAdminPage() {
       )}
 
       <Card className="mt-6 p-0">
-        <div className="p-5 pb-2"><SectionTitle>Recent Points Activity</SectionTitle></div>
+        <div className="p-5 pb-2"><SectionTitle>Recent Diamond Activity</SectionTitle></div>
         <div className="divide-y divide-slate-100">
           {recentTx.length === 0 && <p className="p-5 text-sm text-ink-muted">No activity this month.</p>}
           {recentTx.map((t) => (

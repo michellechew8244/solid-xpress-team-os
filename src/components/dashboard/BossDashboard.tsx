@@ -27,8 +27,8 @@ export async function BossDashboard({ name }: { name: string }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Company Performance Score" value={d.companyScore} sub="avg monthly grade score" rag={d.companyScore >= 80 ? "ok" : d.companyScore >= 70 ? "warn" : "danger"} icon="🏁" />
         <StatCard label="Total Staff" value={d.totalStaff} sub="active employees" rag="neutral" icon="👥" />
-        <StatCard label="Points Issued" value={d.pointsIssued.toLocaleString()} sub="this month" rag="ok" icon="💎" />
-        <StatCard label="Points Deducted" value={d.pointsDeducted.toLocaleString()} sub="this month" rag={d.pointsDeducted > 100 ? "danger" : "warn"} icon="⚠️" />
+        <StatCard label="Diamonds Issued" value={d.pointsIssued.toLocaleString()} sub="this month" rag="ok" icon="💎" />
+        <StatCard label="Diamonds Deducted" value={d.pointsDeducted.toLocaleString()} sub="this month" rag={d.pointsDeducted > 100 ? "danger" : "warn"} icon="⚠️" />
       </div>
 
       {/* Financial + operational metrics */}
@@ -50,7 +50,7 @@ export async function BossDashboard({ name }: { name: string }) {
       {/* Trend + grade distribution */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <SectionTitle>Monthly Points Trend (last 6 weeks)</SectionTitle>
+          <SectionTitle>Monthly Diamonds Trend (last 6 weeks)</SectionTitle>
           <TrendLine data={d.monthlyTrend} />
         </Card>
         <Card>
@@ -113,7 +113,7 @@ export async function BossDashboard({ name }: { name: string }) {
       {/* Department ranking + reward budget */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <SectionTitle>Weekly Department Ranking (points this month)</SectionTitle>
+          <SectionTitle>Weekly Department Ranking (diamonds this month)</SectionTitle>
           <div className="space-y-2">
             {d.deptRanking.map((r, i) => {
               const max = d.deptRanking[0]?.value || 1;
@@ -126,7 +126,7 @@ export async function BossDashboard({ name }: { name: string }) {
                 </div>
               );
             })}
-            {!d.deptRanking.length && <p className="text-sm text-ink-muted">No points recorded yet.</p>}
+            {!d.deptRanking.length && <p className="text-sm text-ink-muted">No diamonds recorded yet.</p>}
           </div>
         </Card>
         <Card>
@@ -134,8 +134,8 @@ export async function BossDashboard({ name }: { name: string }) {
           <div className="text-3xl font-bold text-ink">{rm(d.gpAchieved * 0.015)}</div>
           <div className="text-xs text-ink-muted">recommended budget · GP × 1.5%</div>
           <div className="mt-3 flex items-center justify-between text-xs">
-            <span className="text-ink-muted">Points redeemed (approved)</span>
-            <span className="font-semibold text-brand-700">{d.rewardBudgetUsed.toLocaleString()} pts</span>
+            <span className="text-ink-muted">Diamonds redeemed (approved)</span>
+            <span className="font-semibold text-brand-700">{d.rewardBudgetUsed.toLocaleString()} 💎</span>
           </div>
           <div className="mt-2 text-xs text-ink-muted">Sustainable range: {rm(d.gpAchieved * 0.01)} – {rm(d.gpAchieved * 0.02)} (1–2% of GP)</div>
         </Card>
@@ -175,7 +175,7 @@ function StaffList({
             <div className="truncate text-sm font-semibold">{s.name}</div>
             <div className="truncate text-xs text-ink-muted">{s.department?.name ?? "—"}</div>
           </div>
-          <Pill value={tone === "ok" ? "OK" : "DANGER"} label={`${s.currentPoints} pts`} />
+          <Pill value={tone === "ok" ? "OK" : "DANGER"} label={`${s.currentPoints} 💎`} />
         </div>
       ))}
     </div>

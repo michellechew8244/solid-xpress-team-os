@@ -47,15 +47,15 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
           rag={review ? (review.totalScore >= 80 ? "ok" : review.totalScore >= 70 ? "warn" : "danger") : "neutral"}
           icon="🏁"
         />
-        <StatCard label="My Points" value={user.currentPoints.toLocaleString()} sub={`+${monthPoints._sum.amount ?? 0} this month`} icon="💎" />
-        <StatCard label="Company Rank" value={`#${rank + 1}`} sub="by current points" icon="🏆" rag="neutral" />
+        <StatCard label="My Diamonds" value={user.currentPoints.toLocaleString()} sub={`+${monthPoints._sum.amount ?? 0} this month`} icon="💎" />
+        <StatCard label="Company Rank" value={`#${rank + 1}`} sub="by current diamonds" icon="🏆" rag="neutral" />
         <StatCard label="Lucky Draw Entries" value={myEntries} sub={luckyEntries[0]?.campaign.title ?? "no active campaign"} rag="neutral" icon="🎰" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="My KPI Avg" value={`${avgKpi}%`} sub={`${kpiResults.length} KPIs tracked`} rag={ragFromPct(avgKpi)} icon="📈" />
         <StatCard label="Open Tasks" value={myTasks.length} sub={overdue ? `${overdue} overdue` : "on track"} rag={overdue ? "danger" : "ok"} icon="🎯" />
-        <StatCard label="Lifetime Points" value={user.lifetimePoints.toLocaleString()} sub={`Level ${user.officialLevel}`} rag="neutral" icon="🚀" />
+        <StatCard label="Diamond Earned" value={user.lifetimePoints.toLocaleString()} sub={`Level ${user.officialLevel}`} rag="neutral" icon="🚀" />
         <StatCard label="Badges Earned" value={badges.length} sub="recognition" rag="neutral" icon="🏅" />
       </div>
 
@@ -65,8 +65,8 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
         </SectionTitle>
         <Progress value={levelProgress} rag="ok" />
         <div className="mt-1 flex justify-between text-xs text-ink-muted">
-          <span>{user.lifetimePoints.toLocaleString()} lifetime pts</span>
-          <span>{user.officialLevel < 7 ? `${nextThreshold.toLocaleString()} pts to Level ${user.officialLevel + 1}` : "Max level — Elite!"}</span>
+          <span>{user.lifetimePoints.toLocaleString()} lifetime 💎</span>
+          <span>{user.officialLevel < 7 ? `${nextThreshold.toLocaleString()} 💎 to Level ${user.officialLevel + 1}` : "Max level — Elite!"}</span>
         </div>
       </Card>
 
@@ -109,14 +109,14 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
       <Card>
         <SectionTitle action={<Link href="/rewards" className="text-xs font-semibold text-brand-600">Reward store →</Link>}>🎁 My Redeemed Rewards</SectionTitle>
         {redeemed.length === 0 ? (
-          <p className="text-sm text-ink-muted">No redemptions yet — spend your points in the reward store!</p>
+          <p className="text-sm text-ink-muted">No redemptions yet — spend your diamonds in the reward store!</p>
         ) : (
           <div className="divide-y divide-slate-100">
             {redeemed.map((r) => (
               <div key={r.id} className="flex items-center justify-between py-2 text-sm">
                 <span>{r.reward.imageEmoji} {r.reward.name}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-ink-muted">{r.pointsSpent} pts</span>
+                  <span className="text-xs text-ink-muted">{r.pointsSpent} 💎</span>
                   <Pill value={r.status === "APPROVED" || r.status === "FULFILLED" ? "COMPLETED" : r.status === "REJECTED" ? "REJECTED" : "WAITING_EXTERNAL"} label={r.status} />
                 </div>
               </div>

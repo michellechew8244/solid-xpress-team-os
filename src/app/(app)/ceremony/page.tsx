@@ -21,18 +21,18 @@ export default async function CeremonyPage() {
             <div className="text-xs font-bold uppercase tracking-wide text-amber-600">Company Champion</div>
             <Avatar name={c.companyChampion.name} color={c.companyChampion.avatarColor} size={64} />
             <div className="text-xl font-bold text-ink">{c.companyChampion.name}</div>
-            <div className="text-sm text-ink-muted">{c.companyChampion.department?.name} · {c.companyChampion.monthlyEarned.toLocaleString()} points this month</div>
+            <div className="text-sm text-ink-muted">{c.companyChampion.department?.name} · {c.companyChampion.monthlyEarned.toLocaleString()} diamonds this month</div>
           </div>
         </Card>
       ) : (
-        <EmptyState title="No data for this month yet" hint="Award points and generate reviews to populate the ceremony." />
+        <EmptyState title="No data for this month yet" hint="Award diamonds and generate reviews to populate the ceremony." />
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Award icon="🦸" title="Customer Hero" name={c.customerHero?.user.name} sub={c.customerHero ? `${c.customerHero.value} compliment pts` : undefined} color={c.customerHero?.user.avatarColor} />
-        <Award icon="🤝" title="Best Team Player" name={c.teamPlayer?.user.name} sub={c.teamPlayer ? `${c.teamPlayer.value} teamwork pts` : undefined} color={c.teamPlayer?.user.avatarColor} />
-        <Award icon="🧩" title="Best Problem Solver" name={c.problemSolver?.user.name} sub={c.problemSolver ? `${c.problemSolver.value} pts` : undefined} color={c.problemSolver?.user.avatarColor} />
-        <Award icon="📈" title="Most Improved" name={c.mostImproved?.name} sub={c.mostImproved ? `${c.mostImproved.monthlyEarned} pts this month` : undefined} color={c.mostImproved?.avatarColor} />
+        <Award icon="🦸" title="Customer Hero" name={c.customerHero?.user.name} sub={c.customerHero ? `${c.customerHero.value} compliment 💎` : undefined} color={c.customerHero?.user.avatarColor} />
+        <Award icon="🤝" title="Best Team Player" name={c.teamPlayer?.user.name} sub={c.teamPlayer ? `${c.teamPlayer.value} teamwork 💎` : undefined} color={c.teamPlayer?.user.avatarColor} />
+        <Award icon="🧩" title="Best Problem Solver" name={c.problemSolver?.user.name} sub={c.problemSolver ? `${c.problemSolver.value} 💎` : undefined} color={c.problemSolver?.user.avatarColor} />
+        <Award icon="📈" title="Most Improved" name={c.mostImproved?.name} sub={c.mostImproved ? `${c.mostImproved.monthlyEarned} 💎 this month` : undefined} color={c.mostImproved?.avatarColor} />
         <Award icon="🏅" title="Top Grade" name={c.bestGraded?.staff.name} sub={c.bestGraded ? `Grade ${GRADE_LABEL[c.bestGraded.finalGrade ?? "C"]} · ${Math.round(c.bestGraded.totalScore)}` : undefined} color={c.bestGraded?.staff.avatarColor} />
       </div>
 
@@ -46,7 +46,7 @@ export default async function CeremonyPage() {
               <div>
                 <div className="text-xs text-ink-muted">{d.department}</div>
                 <div className="text-sm font-semibold text-ink">{d.user.name}</div>
-                <div className="text-xs text-brand-700">{d.user.monthlyEarned} pts</div>
+                <div className="text-xs text-brand-700">{d.user.monthlyEarned} 💎</div>
               </div>
             </div>
           ))}

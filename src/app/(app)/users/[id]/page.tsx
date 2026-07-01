@@ -131,7 +131,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
           <div className="grid grid-cols-2 gap-4">
             <Field label="Monthly Score" value={review ? Math.round(review.totalScore) : "—"} />
             <Field label="Grade" value={review?.finalGrade ? GRADE_LABEL[review.finalGrade] : "—"} />
-            <Field label="Current Points" value={user.currentPoints.toLocaleString()} />
+            <Field label="Current Diamonds" value={user.currentPoints.toLocaleString()} />
             <Field label="Ranking" value={`#${rankAbove + 1}`} />
             <Field label="Monthly Earned" value={`+${user.monthlyEarned}`} />
             <Field label="Monthly Deducted" value={`-${user.monthlyDeducted}`} />
@@ -142,7 +142,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-xs">
             <Link href="/kpi" className="btn-ghost px-3 py-1">View KPI</Link>
-            <Link href="/wallet" className="btn-ghost px-3 py-1">View Points</Link>
+            <Link href="/wallet" className="btn-ghost px-3 py-1">View Diamonds</Link>
             <Link href="/rewards" className="btn-ghost px-3 py-1">View Rewards</Link>
             <Link href="/reviews" className="btn-ghost px-3 py-1">Performance Review</Link>
           </div>

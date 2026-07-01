@@ -41,7 +41,7 @@ export default async function TrainingPage() {
     <>
       <PageHeader
         title="Training Centre"
-        subtitle="Upskill, watch training video/slides, pass the quiz, earn points"
+        subtitle="Upskill, watch training video/slides, pass the quiz, earn diamonds"
         action={canManage ? <NewTrainingForm /> : undefined}
       />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -58,7 +58,7 @@ export default async function TrainingPage() {
                 <div>
                   <div className="font-bold text-ink">{t.title}</div>
                   <div className="text-xs text-ink-muted">
-                    {t.departmentEligibility === "ALL" ? "All departments" : t.departmentEligibility} · pass {t.passingMark}% · +{t.pointsAward} pts
+                    {t.departmentEligibility === "ALL" ? "All departments" : t.departmentEligibility} · pass {t.passingMark}% · +{t.pointsAward} 💎
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">

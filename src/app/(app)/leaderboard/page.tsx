@@ -3,39 +3,56 @@ import { getCurrentUser } from "@/lib/auth";
 import { currentPeriod } from "@/lib/enums";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
 
+const MODES: Record<string, string> = {
+  monthly: "Monthly Diamonds",
+  lifetime: "Lifetime Diamonds",
+  owner: "Owner Bonus",
+};
+
 export default async function LeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dept?: string }>;
+  searchParams: Promise<{ dept?: string; mode?: string }>;
 }) {
   const sp = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
   const period = currentPeriod();
+  const mode = sp.mode && MODES[sp.mode] ? sp.mode : "monthly";
 
-  // Monthly points per user (section Q9 — leaderboard refreshes by month).
-  const monthly = await prisma.pointsTransaction.groupBy({
-    by: ["userId"],
-    where: { period, amount: { gt: 0 } },
-    _sum: { amount: true },
-  });
+  // Ranking metric per mode (all diamond-based).
+  const [monthly, ownerAgg] = await Promise.all([
+    prisma.pointsTransaction.groupBy({ by: ["userId"], where: { period, amount: { gt: 0 } }, _sum: { amount: true } }),
+    prisma.pointsTransaction.groupBy({ by: ["userId"], where: { transactionType: "OWNER_GENERATE", amount: { gt: 0 } }, _sum: { amount: true } }),
+  ]);
   const monthlyMap = new Map(monthly.map((m) => [m.userId, m._sum.amount ?? 0]));
+  const ownerMap = new Map(ownerAgg.map((m) => [m.userId, m._sum.amount ?? 0]));
 
   const users = await prisma.user.findMany({
     where: { role: { in: ["STAFF", "DEPARTMENT_HEAD"] }, isActive: true, ...(sp.dept ? { departmentId: sp.dept } : {}) },
     include: { department: true },
   });
 
+  const metric = (u: (typeof users)[number]) =>
+    mode === "lifetime" ? u.lifetimePoints : mode === "owner" ? (ownerMap.get(u.id) ?? 0) : (monthlyMap.get(u.id) ?? 0);
+
   const ranked = users
-    .map((u) => ({ ...u, monthlyPoints: monthlyMap.get(u.id) ?? 0 }))
+    .map((u) => ({ ...u, monthlyPoints: metric(u) }))
     .sort((a, b) => b.monthlyPoints - a.monthlyPoints);
 
   const departments = await prisma.department.findMany({ orderBy: { name: "asc" } });
   const champion = ranked[0];
+  const deptQ = sp.dept ? `&dept=${sp.dept}` : "";
 
   return (
     <>
-      <PageHeader title="Leaderboard" subtitle={`Monthly ranking · ${period}`} />
+      <PageHeader title="Leaderboard" subtitle={`${MODES[mode]}${mode === "monthly" ? ` · ${period}` : ""}`} />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {Object.entries(MODES).map(([m, label]) => (
+          <Chip key={m} label={label} href={`/leaderboard?mode=${m}${deptQ}`} active={mode === m} />
+        ))}
+      </div>
 
       {/* Podium */}
       {ranked.length >= 3 && (
@@ -47,7 +64,7 @@ export default async function LeaderboardPage({
               <div key={u.id} className="flex flex-col items-center justify-end">
                 <Avatar name={u.name} color={u.avatarColor} size={place === 1 ? 56 : 44} />
                 <div className="mt-1 text-center text-sm font-semibold">{u.name.split(" ")[0]}</div>
-                <div className="text-xs text-ink-muted">{u.monthlyPoints} pts</div>
+                <div className="text-xs text-ink-muted">{u.monthlyPoints} 💎</div>
                 <div className={`mt-1 flex ${h} w-full items-start justify-center rounded-t-lg ${place === 1 ? "bg-amber-400" : place === 2 ? "bg-slate-300" : "bg-orange-300"} pt-2 text-2xl font-bold text-white`}>
                   {place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}
                 </div>
@@ -58,8 +75,8 @@ export default async function LeaderboardPage({
       )}
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <Chip label="All departments" href="/leaderboard" active={!sp.dept} />
-        {departments.map((d) => <Chip key={d.id} label={d.name} href={`/leaderboard?dept=${d.id}`} active={sp.dept === d.id} />)}
+        <Chip label="All departments" href={`/leaderboard?mode=${mode}`} active={!sp.dept} />
+        {departments.map((d) => <Chip key={d.id} label={d.name} href={`/leaderboard?mode=${mode}&dept=${d.id}`} active={sp.dept === d.id} />)}
       </div>
 
       <Card className="p-0">
@@ -73,8 +90,8 @@ export default async function LeaderboardPage({
                 <div className="truncate text-xs text-ink-muted">{u.department?.name} · Lv.{u.officialLevel}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-bold text-brand-700">{u.monthlyPoints}</div>
-                <div className="text-[10px] text-ink-muted">this month</div>
+                <div className="text-sm font-bold text-brand-700">{u.monthlyPoints} 💎</div>
+                <div className="text-[10px] text-ink-muted">{mode === "lifetime" ? "lifetime" : mode === "owner" ? "owner bonus" : "this month"}</div>
               </div>
             </div>
           ))}

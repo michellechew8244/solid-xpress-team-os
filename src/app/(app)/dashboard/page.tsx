@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   // in the sidebar (Users / Finance Control).
   return (
     <>
-      <PageHeader title={`Welcome, ${user.name.split(" ")[0]}`} subtitle="Your tasks, KPI, points and growth" />
+      <PageHeader title={`Welcome, ${user.name.split(" ")[0]}`} subtitle="Your tasks, KPI, diamonds and growth" />
       <StaffHome userId={user.id} name={user.name} />
     </>
   );

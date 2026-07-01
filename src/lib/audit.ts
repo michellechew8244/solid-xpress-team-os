@@ -15,6 +15,7 @@ export async function logAudit(
     entityType?: string;
     performedBy: string;
     actorName?: string;
+    affectedUserId?: string;
     oldValue?: unknown;
     newValue?: unknown;
     ipAddress?: string;
@@ -27,6 +28,7 @@ export async function logAudit(
       entityId: args.entityId,
       performedBy: args.performedBy,
       actorName: args.actorName,
+      affectedUserId: args.affectedUserId,
       oldValue: args.oldValue !== undefined ? JSON.stringify(args.oldValue) : null,
       newValue: args.newValue !== undefined ? JSON.stringify(args.newValue) : null,
       ipAddress: args.ipAddress,

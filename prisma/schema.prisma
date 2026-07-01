@@ -64,6 +64,9 @@ model User {
   lastLoginAt   DateTime?
   createdBy     String?
   updatedBy     String?
+  // Diamond Authority module: when true, a non-boss user is allowed to generate
+  // diamonds directly (granted only by the Owner/Boss). Default false.
+  hasOwnerDiamondAuthority Boolean @default(false)
 
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id])
@@ -370,11 +373,24 @@ model PointsTransaction {
   sourceType   String?
   generatedBy  String?  // actor user id, or "SYSTEM"
   internalNote String?
-  status       String   @default("APPROVED") // APPROVED | PENDING | REVERSED
+  status       String   @default("APPROVED") // APPROVED | PENDING | REVERSED | VOIDED | COMPLETED | REJECTED
+  // Diamond Authority module: richer classification for owner-driven diamond
+  // transactions. transactionType is the diamond action; balanceBefore/After
+  // snapshot the wallet around this entry; relatedTransactionId links a
+  // reversal/void back to the original entry it neutralises.
+  transactionType     String?  // EARN | DEDUCT | REDEEM | BONUS | OWNER_GENERATE | OWNER_ADJUST | REVERSAL | VOID
+  balanceBefore       Int?
+  balanceAfter        Int?
+  departmentId        String?
+  approvedBy          String?
+  relatedTransactionId String?
+  effectiveDate       DateTime?
   period    String   // "2026-07" — used for monthly leaderboard
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId, sourceType])
+  @@index([transactionType])
 }
 
 // Singleton config for the New Staff Onboarding Bonus (points/"diamonds").
@@ -387,6 +403,41 @@ model OnboardingBonusSetting {
   timing      String   @default("ON_USER_CREATION")
   updatedById String?
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+// Diamond bonus proposal raised by HR / Department Head for Owner approval.
+// Only the Owner can approve, which then generates the diamonds.
+model DiamondRequest {
+  id            String    @id @default(cuid())
+  targetUserId  String?   // recipient staff (null when a whole department)
+  departmentId  String?   // set when the proposal targets a department
+  amount        Int
+  reason        String
+  evidenceUrl   String?
+  requestedById String
+  // PENDING_OWNER_APPROVAL | APPROVED | REJECTED | COMPLETED
+  status        String    @default("PENDING_OWNER_APPROVAL")
+  decidedById   String?
+  decidedReason String?
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@index([status])
+}
+
+// Singleton config for the Diamond Authority module (Owner-controlled).
+model DiamondAuthoritySetting {
+  id                    String   @id @default("singleton")
+  allowHrPropose        Boolean  @default(true)
+  allowDeptHeadPropose  Boolean  @default(true)
+  requireOwnerApproval  Boolean  @default(true)
+  maxDeptHeadProposal   Int      @default(500)
+  maxHrProposal         Int      @default(1000)
+  monthlyBudgetLimit    Int      @default(0) // 0 = unlimited
+  alertOnExceed         Boolean  @default(true)
+  updatedById           String?
+  updatedAt             DateTime @default(now()) @updatedAt
 }
 
 model Reward {
@@ -770,6 +821,7 @@ model AuditLog {
   entityId    String
   performedBy String   // user id of actor
   actorName   String?  // denormalised for easy display
+  affectedUserId String? // subject staff for diamond actions (K spec)
   oldValue    String?  // JSON snapshot
   newValue    String?  // JSON snapshot
   ipAddress   String?

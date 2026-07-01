@@ -35,7 +35,7 @@ export const NAV: NavGroup[] = [
   {
     group: "Rewards & Growth",
     items: [
-      { href: "/wallet", label: "Points Wallet", icon: "💎" },
+      { href: "/wallet", label: "Diamond Wallet", icon: "💎" },
       { href: "/rewards", label: "Reward Store", icon: "🎁" },
       { href: "/badges", label: "Badge Centre", icon: "🏅" },
       { href: "/lucky-draw", label: "Lucky Draw", icon: "🎰" },
@@ -43,9 +43,18 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    group: "Diamonds",
+    items: [
+      { href: "/owner/diamonds", label: "Diamond Control Centre", icon: "💠", roles: ["SUPER_ADMIN", "MANAGEMENT"] },
+      { href: "/diamonds/requests", label: "Diamond Requests", icon: "📥", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
+      { href: "/diamonds/transactions", label: "Diamond Transactions", icon: "🧾" },
+      { href: "/settings/diamond-authority", label: "Diamond Authority", icon: "🔐", roles: ["SUPER_ADMIN", "MANAGEMENT"] },
+    ],
+  },
+  {
     group: "People",
     items: [
-      { href: "/points-admin", label: "Points Admin", icon: "⚖️", roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"] },
+      { href: "/points-admin", label: "Diamond Admin", icon: "⚖️", roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"] },
       { href: "/coaching", label: "Coaching Centre", icon: "🎓", roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"] },
       { href: "/reviews", label: "Performance Review", icon: "🗂️", roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"] },
       { href: "/finance", label: "Finance Control", icon: "💰", roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"] },
