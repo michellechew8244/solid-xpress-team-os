@@ -1,19 +1,21 @@
-import path from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
- * Prisma client using the better-sqlite3 driver adapter + WASM query compiler.
- * Required on Windows-on-ARM64 where the native x64 query engine DLL cannot
- * load. To move to PostgreSQL, swap this adapter for @prisma/adapter-pg and
- * update DATABASE_URL.
+ * Prisma client using the node-postgres (pg) driver adapter + Prisma 7 WASM
+ * query compiler. The pg adapter is pure JavaScript, so this runs on
+ * Windows-on-ARM64 where Prisma's native x64 query engine cannot load, and on
+ * Vercel's serverless functions.
  *
- * Both the CLI (via prisma.config.ts) and this adapter resolve the database to
- * the project-root `dev.db`, so they share one file.
+ * DATABASE_URL must be a PostgreSQL connection string, e.g.
+ *   postgresql://user:password@localhost:5432/solidxpress
  */
 function makeClient() {
-  const dbFile = path.join(process.cwd(), "dev.db");
-  const adapter = new PrismaBetterSqlite3({ url: `file:${dbFile}` });
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not set — point it at your PostgreSQL instance.");
+  }
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],

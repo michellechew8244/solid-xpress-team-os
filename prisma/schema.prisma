@@ -14,10 +14,9 @@ generator client {
 }
 
 datasource db {
-  // Temporarily SQLite so the app runs locally without a Postgres server.
-  // The PostgreSQL version is saved in _pg_backup/ — switch back when a
-  // Postgres database is available.
-  provider = "sqlite"
+  // Runtime client connects via the pg driver adapter, wired up in
+  // src/lib/prisma.ts. Connection string comes from DATABASE_URL.
+  provider = "postgresql"
 }
 
 // ===========================================================================

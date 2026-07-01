@@ -29,3 +29,6 @@ _sqlite_backup/
 .DS_Store
 *.log
 npm-debug.log*
+
+.vercel
+.env*
