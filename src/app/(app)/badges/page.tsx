@@ -4,6 +4,7 @@ import { isBoss, canApproveTasks } from "@/lib/rbac";
 import { shortDate } from "@/lib/format";
 import { Card, PageHeader, SectionTitle } from "@/components/ui";
 import { AwardBadgeForm } from "@/components/AwardBadgeForm";
+import { BadgeRoadmap, type BadgeRoadmapItem } from "@/components/BadgeRoadmap";
 import { calculateLevelProgress, getLevelRules, getRecommendedLevelMissions, getTeamGrowthOverview } from "@/services/growth";
 import { LevelProgressCard } from "@/components/growth/LevelProgressCard";
 import { GrowthLevelCard } from "@/components/growth/GrowthLevelCard";
@@ -23,7 +24,7 @@ export default async function BadgesPage() {
 
   const [badges, myBadges, staffForAward, rules, nextProgress, missions] = await Promise.all([
     prisma.badge.findMany({ include: { _count: { select: { users: true } } } }),
-    prisma.userBadge.findMany({ where: { userId: user.id }, select: { badgeId: true } }),
+    prisma.userBadge.findMany({ where: { userId: user.id }, select: { badgeId: true, awardedAt: true, note: true } }),
     canAward
       ? prisma.user.findMany({
           where: { role: { in: ["STAFF", "DEPARTMENT_HEAD"] }, isActive: true, ...(isBoss(user.role) || user.role === "HR_ADMIN" ? {} : { departmentId: user.departmentId ?? "" }) },
@@ -34,7 +35,21 @@ export default async function BadgesPage() {
     calculateLevelProgress(user.id), // defaults to the user's immediate next level
     getRecommendedLevelMissions(user.id),
   ]);
-  const earned = new Set(myBadges.map((b) => b.badgeId));
+  const earnedMap = new Map(myBadges.map((b) => [b.badgeId, b]));
+
+  // Badge Roadmap view-model: order the trail from most-commonly-earned
+  // (entry milestones) to rarest (prestige), tie-broken by lower points bonus
+  // then name, so the journey reads easiest → hardest.
+  const roadmapItems: BadgeRoadmapItem[] = badges
+    .map((b) => {
+      const mine = earnedMap.get(b.id);
+      return {
+        id: b.id, name: b.name, description: b.description, criteria: b.criteria, icon: b.icon,
+        pointsBonus: b.pointsBonus, departmentEligibility: b.departmentEligibility, earnedCount: b._count.users,
+        earned: Boolean(mine), earnedDate: mine ? shortDate(mine.awardedAt) : null, note: mine?.note ?? null,
+      };
+    })
+    .sort((a, b) => b.earnedCount - a.earnedCount || a.pointsBonus - b.pointsBonus || a.name.localeCompare(b.name));
 
   // Per-level checklist for every level 2-7 (level 1 has no requirements) — powers the clickable cards.
   const checklistByLevel = new Map(
@@ -169,29 +184,11 @@ export default async function BadgesPage() {
         </div>
       )}
 
-      {/* ---- Badges (existing) ---------------------------------------------- */}
-      <SectionTitle>Badges</SectionTitle>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {badges.map((b) => {
-          const has = earned.has(b.id);
-          return (
-            <Card key={b.id} className={has ? "border-l-4 border-l-ok" : "opacity-80"}>
-              <div className="flex items-start gap-3">
-                <div className={`text-3xl ${has ? "" : "grayscale"}`}>{b.icon}</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-ink">{b.name}</span>
-                    {has && <span className="badge bg-green-100 text-green-700">Earned</span>}
-                  </div>
-                  <p className="text-xs text-ink-soft">{b.description}</p>
-                  <p className="mt-1 text-[11px] text-ink-muted">Criteria: {b.criteria}</p>
-                  <p className="text-[11px] text-ink-muted">+{b.pointsBonus} pts · {b.departmentEligibility === "ALL" ? "All departments" : b.departmentEligibility} · {b._count.users} earned</p>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      {/* ---- Badge Roadmap -------------------------------------------------- */}
+      <SectionTitle>Badge Roadmap</SectionTitle>
+      <Card>
+        <BadgeRoadmap items={roadmapItems} />
+      </Card>
     </>
   );
 }

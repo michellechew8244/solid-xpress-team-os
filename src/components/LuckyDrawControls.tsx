@@ -48,13 +48,81 @@ export function BuyEntryButton({ campaignId, cost, balance }: { campaignId: stri
   );
 }
 
+/**
+ * Admin "Draw winner" control. The winner is chosen fairly server-side by
+ * `drawPrize`; this component then plays an honest spin-the-wheel reveal that
+ * lands on that exact winner. The wheel is purely theatrical — it never changes
+ * who won.
+ */
 export function DrawButton({ prizeId }: { prizeId: string }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
+  const [result, setResult] = useState<DrawResult | null>(null);
+  const [spinTrigger, setSpinTrigger] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+
+  function launch() {
+    setMsg(null);
+    start(async () => {
+      try {
+        const r = await drawPrize(prizeId);
+        setResult(r);
+        setRevealed(false);
+        // Kick off the spin on the next tick, once the wheel has mounted.
+        setTimeout(() => setSpinTrigger((n) => n + 1), 50);
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : "Error");
+      }
+    });
+  }
+
+  function close() {
+    setResult(null);
+    setRevealed(false);
+  }
+
+  const segments: WheelSegment[] = result
+    ? result.candidates.map((c, i) => ({ key: c.userId, label: c.name, color: WHEEL_COLORS[i % WHEEL_COLORS.length] }))
+    : [];
+
   return (
     <span>
-      <button className="btn-primary px-3 py-1 text-xs" disabled={pending} onClick={() => start(async () => { try { await drawPrize(prizeId); } catch (e) { setMsg(e instanceof Error ? e.message : "Error"); } })}>🎲 Draw winner</button>
+      <button className="btn-primary px-3 py-1 text-xs" disabled={pending} onClick={launch}>
+        {pending ? "Drawing…" : "🎲 Draw winner"}
+      </button>
       {msg && <span className="ml-2 text-xs text-danger">{msg}</span>}
+
+      {result && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={revealed ? close : undefined}>
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {revealed && <Confetti />}
+            <div className="relative text-xs font-bold uppercase tracking-wide text-brand-600">Lucky Draw</div>
+            <h2 className="relative mt-1 text-lg font-bold text-ink">🎁 {result.prizeName}</h2>
+
+            <div className="relative mt-4">
+              <SpinWheel
+                segments={segments}
+                targetKey={result.winnerId}
+                spinTrigger={spinTrigger}
+                onSpinEnd={() => setRevealed(true)}
+              />
+            </div>
+
+            {revealed ? (
+              <div className="relative mt-5">
+                <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Winner</div>
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  <Avatar name={result.winnerName} color={result.winnerAvatarColor} size={32} />
+                  <span className="text-xl font-bold text-ok">{result.winnerName} 🎉</span>
+                </div>
+                <button className="btn-primary mt-5 w-full" onClick={close}>Done</button>
+              </div>
+            ) : (
+              <p className="relative mt-4 text-sm text-ink-muted">Spinning the wheel…</p>
+            )}
+          </div>
+        </div>
+      )}
     </span>
   );
 }
