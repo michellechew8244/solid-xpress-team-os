@@ -358,14 +358,35 @@ model PointsTransaction {
   // Positive for earn, negative for deduction/redemption
   amount    Int
   // Type: TASK, KPI, COMPLIMENT, TEAMWORK, PROBLEM_SOLVED, SALES, COST_SAVING,
-  // PENALTY_PREVENTED, SOP, MENTORING, CONTENT, ZERO_MISTAKE, PENALTY, REDEMPTION, MANUAL
+  // PENALTY_PREVENTED, SOP, MENTORING, CONTENT, ZERO_MISTAKE, PENALTY, REDEMPTION,
+  // MANUAL, BONUS
   type      String
   reason    String
   // Link back to source entity (optional)
   refType   String?
   refId     String?
+  // Optional provenance for owner/system-generated grants (e.g. onboarding
+  // bonus). sourceType is a finer classifier than `type` — e.g. NEW_ONBOARDING.
+  sourceType   String?
+  generatedBy  String?  // actor user id, or "SYSTEM"
+  internalNote String?
+  status       String   @default("APPROVED") // APPROVED | PENDING | REVERSED
   period    String   // "2026-07" — used for monthly leaderboard
   createdAt DateTime @default(now())
+
+  @@index([userId, sourceType])
+}
+
+// Singleton config for the New Staff Onboarding Bonus (points/"diamonds").
+// Only one row exists (id = "singleton"); Owner/Boss edits it.
+model OnboardingBonusSetting {
+  id          String   @id @default("singleton")
+  enabled     Boolean  @default(true)
+  amount      Int      @default(50)
+  // ON_USER_CREATION | ON_ONBOARDING_COMPLETION | MANUAL_OWNER_APPROVAL
+  timing      String   @default("ON_USER_CREATION")
+  updatedById String?
+  updatedAt   DateTime @default(now()) @updatedAt
 }
 
 model Reward {

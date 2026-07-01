@@ -101,6 +101,25 @@ export async function toggleLeaveBlock(key: string, label: string, enabled: bool
   revalidatePath("/rewards");
 }
 
+/** Update the New Staff Onboarding Bonus configuration (Owner / Boss only). */
+export async function updateOnboardingBonusSetting(formData: FormData) {
+  const session = await getSession();
+  if (!session || !isBoss(session.role)) throw new Error("Only the Owner can change the onboarding bonus settings.");
+
+  const enabled = formData.get("enabled") === "on" || formData.get("enabled") === "true";
+  const amount = Math.max(0, Math.round(Number(formData.get("amount") ?? 50)));
+  const timing = String(formData.get("timing") ?? "ON_USER_CREATION");
+  const allowed = ["ON_USER_CREATION", "ON_ONBOARDING_COMPLETION", "MANUAL_OWNER_APPROVAL"];
+  if (!allowed.includes(timing)) throw new Error("Invalid award timing.");
+
+  await prisma.onboardingBonusSetting.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", enabled, amount, timing, updatedById: session.id },
+    update: { enabled, amount, timing, updatedById: session.id },
+  });
+  revalidatePath("/points-admin");
+}
+
 /** Free-form manual adjustment (boss/HR). Positive earns, negative deducts. */
 export async function adjustPoints(formData: FormData) {
   const session = await getSession();

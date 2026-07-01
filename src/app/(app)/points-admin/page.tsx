@@ -7,6 +7,8 @@ import { dateTime } from "@/lib/format";
 import { Avatar, Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { PenaltyForm, RecognitionForm, AdjustForm } from "@/components/PointsAdminForms";
 import { LeaveBlockToggles } from "@/components/LeaveBlockToggles";
+import { OnboardingBonusSettingForm } from "@/components/OnboardingBonusSettingForm";
+import { getOnboardingSetting } from "@/lib/onboarding-bonus";
 
 export default async function PointsAdminPage() {
   const user = await getCurrentUser();
@@ -17,7 +19,7 @@ export default async function PointsAdminPage() {
   const period = currentPeriod();
   const deptScope = isBoss(user.role) || user.role === "HR_ADMIN" ? {} : { departmentId: user.departmentId ?? "" };
 
-  const [staff, rules, recentTx, redLines, settings] = await Promise.all([
+  const [staff, rules, recentTx, redLines, settings, onboardingSetting] = await Promise.all([
     prisma.user.findMany({ where: { role: { in: ["STAFF", "DEPARTMENT_HEAD"] }, ...deptScope }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.penaltyRule.findMany({ where: { isActive: true }, orderBy: { deductionPoints: "asc" } }),
     prisma.pointsTransaction.findMany({
@@ -26,9 +28,12 @@ export default async function PointsAdminPage() {
     }),
     prisma.coachingRecord.findMany({ where: { triggeredBy: "RED_LINE" }, include: { staff: true }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.systemSetting.findMany(),
+    getOnboardingSetting(),
   ]);
   const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.enabled]));
   const canToggleLeave = isBoss(user.role) || user.role === "HR_ADMIN";
+  // Onboarding bonus settings are visible to Boss/HR; only the Owner can edit.
+  const canSeeOnboardingSetting = isBoss(user.role) || user.role === "HR_ADMIN";
 
   const totalIssued = recentTx.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalDeducted = recentTx.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
@@ -66,6 +71,14 @@ export default async function PointsAdminPage() {
             <LeaveBlockToggles enabled={settingsMap} />
           </Card>
         </div>
+      )}
+
+      {canSeeOnboardingSetting && (
+        <Card className="mt-6">
+          <SectionTitle>💎 New Staff Onboarding Bonus</SectionTitle>
+          <p className="mb-3 -mt-1 text-xs text-ink-muted">Automatically reward every newly onboarded staff with welcome diamonds.</p>
+          <OnboardingBonusSettingForm setting={onboardingSetting} canEdit={isBoss(user.role)} />
+        </Card>
       )}
 
       {redLines.length > 0 && (

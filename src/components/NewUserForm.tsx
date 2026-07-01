@@ -10,15 +10,31 @@ type Person = { id: string; name: string };
 export function NewUserForm({ departments, managers, roles }: { departments: Person[]; managers: Person[]; roles: string[] }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ bonusAwarded: boolean; bonusAmount: number } | null>(null);
   const ref = useRef<HTMLFormElement>(null);
 
   return (
     <div>
-      <button className="btn-primary w-full sm:w-auto" onClick={() => setOpen((o) => !o)}>＋ Add Staff</button>
+      <button className="btn-primary w-full sm:w-auto" onClick={() => { setSuccess(null); setOpen((o) => !o); }}>＋ Add Staff</button>
+
+      {success && (
+        <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <div className="font-semibold">✅ Staff created successfully.</div>
+          {success.bonusAwarded ? (
+            <ul className="mt-1 list-disc pl-5 text-green-700">
+              <li>{success.bonusAmount} welcome diamonds awarded.</li>
+              <li>Diamond wallet created.</li>
+            </ul>
+          ) : (
+            <div className="mt-1 text-green-700">Onboarding diamond bonus was not auto-issued (disabled or set to manual/checklist timing).</div>
+          )}
+        </div>
+      )}
+
       {open && (
         <form
           ref={ref}
-          action={async (fd) => { setErr(null); try { await createUser(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } }}
+          action={async (fd) => { setErr(null); try { const r = await createUser(fd); ref.current?.reset(); setOpen(false); setSuccess({ bonusAwarded: r.bonusAwarded, bonusAmount: r.bonusAmount }); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } }}
           className="card mt-3 grid gap-3 p-4 sm:grid-cols-2"
         >
           <div><label className="label">Full name *</label><input name="name" className="input" required /></div>

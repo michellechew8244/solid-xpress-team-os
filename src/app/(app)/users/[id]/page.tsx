@@ -8,8 +8,11 @@ import {
   canViewUser, editScope, canResetPassword, canDeactivateUsers, canAssignRole,
   ROLE_BADGE, ROLE_SHORT, EMPLOYMENT_STATUS_BADGE, ACCESS_STATUS_BADGE, MANAGEABLE_ROLES,
 } from "@/lib/user-permissions";
+import { isBoss } from "@/lib/rbac";
+import { hasOnboardingBonus } from "@/lib/onboarding-bonus";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
 import { UserRowActions } from "@/components/UserAdminActions";
+import { OnboardingBonusControls } from "@/components/OnboardingBonusControls";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -32,14 +35,23 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
   }
 
   const period = currentPeriod();
-  const [review, badgeCount, redeemedCount, rankAbove, creator, updater] = await Promise.all([
+  const [review, badgeCount, redeemedCount, rankAbove, creator, updater, onboardingIssued] = await Promise.all([
     prisma.performanceReview.findFirst({ where: { staffId: user.id, period } }),
     prisma.userBadge.count({ where: { userId: user.id } }),
     prisma.rewardRedemption.count({ where: { userId: user.id, status: { in: ["APPROVED", "FULFILLED"] } } }),
     prisma.user.count({ where: { isActive: true, currentPoints: { gt: user.currentPoints } } }),
     user.createdBy ? prisma.user.findUnique({ where: { id: user.createdBy }, select: { name: true } }) : null,
     user.updatedBy ? prisma.user.findUnique({ where: { id: user.updatedBy }, select: { name: true } }) : null,
+    hasOnboardingBonus(user.id),
   ]);
+
+  // Onboarding-bonus management: Boss/HR can see it; Boss (and HR when allowed)
+  // can award manually; only Boss can reverse. Not shown for manager/admin roles.
+  const isStaffAccount = user.role === "STAFF" || user.role === "DEPARTMENT_HEAD";
+  const canManageOnboarding = isBoss(me.role) || me.role === "HR_ADMIN";
+  const onboardingBonusAmount = onboardingIssued
+    ? (await prisma.pointsTransaction.aggregate({ where: { userId: user.id, sourceType: "NEW_ONBOARDING", amount: { gt: 0 } }, _sum: { amount: true } }))._sum.amount ?? 0
+    : 0;
 
   const scope = editScope({ id: me.id, role: me.role, departmentId: me.departmentId }, { id: user.id, role: user.role, departmentId: user.departmentId });
   const departments = await prisma.department.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
@@ -78,6 +90,19 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
             departments={departments}
             managers={managers}
             roles={assignableRoles}
+          />
+        </Card>
+      )}
+
+      {canManageOnboarding && isStaffAccount && (
+        <Card className="mb-6">
+          <SectionTitle>💎 New Staff Onboarding Bonus</SectionTitle>
+          <OnboardingBonusControls
+            userId={user.id}
+            issued={onboardingIssued}
+            amount={onboardingBonusAmount}
+            canAward={isBoss(me.role) || me.role === "HR_ADMIN"}
+            canReverse={isBoss(me.role)}
           />
         </Card>
       )}

@@ -12,6 +12,8 @@ import {
   validatePassword,
 } from "@/lib/user-permissions";
 import { logAudit } from "@/lib/audit";
+import { isBoss } from "@/lib/rbac";
+import { awardOnboardingDiamonds, reverseOnboardingDiamonds, getOnboardingSetting } from "@/lib/onboarding-bonus";
 
 async function actor() {
   const s = await getSession();
@@ -19,8 +21,14 @@ async function actor() {
   return s;
 }
 
+export interface CreateUserResult {
+  userId: string;
+  bonusAwarded: boolean;
+  bonusAmount: number;
+}
+
 /** Create a new staff user (Boss / HR). Auto-creates the points wallet + profile. */
-export async function createUser(formData: FormData) {
+export async function createUser(formData: FormData): Promise<CreateUserResult> {
   const me = await actor();
   if (!canCreateUsers(me.role)) throw new Error("Forbidden");
 
@@ -72,7 +80,58 @@ export async function createUser(formData: FormData) {
   });
 
   await logAudit(prisma, { action: "USER_CREATED", entityId: user.id, performedBy: me.id, actorName: me.name, newValue: { email, name, role, departmentId } });
+
+  // New Staff Onboarding Bonus — auto-award welcome diamonds on account
+  // creation when the setting is enabled and configured for that timing. Other
+  // timings (manual approval / checklist completion) are triggered elsewhere.
+  let bonusAwarded = false;
+  let bonusAmount = 0;
+  const setting = await getOnboardingSetting();
+  if (setting.enabled && setting.timing === "ON_USER_CREATION") {
+    const res = await awardOnboardingDiamonds(user.id, me.id);
+    if (res.ok && res.awarded) { bonusAwarded = true; bonusAmount = res.amount; }
+  }
+
   revalidatePath("/users");
+  return { userId: user.id, bonusAwarded, bonusAmount };
+}
+
+/**
+ * Manually award the onboarding bonus (Boss always; HR Admin when the setting
+ * allows). Used for the "manual approval" timing, or to grant it to a staff who
+ * was created while the bonus was disabled. Dedupe-guarded.
+ */
+export async function awardOnboardingBonusManual(userId: string) {
+  const me = await actor();
+  const isHr = me.role === "HR_ADMIN";
+  if (!isBoss(me.role) && !isHr) throw new Error("Forbidden");
+
+  const setting = await getOnboardingSetting();
+  if (!setting.enabled) throw new Error("Onboarding diamond bonus is currently disabled.");
+  // HR may only trigger manually when the timing setting permits a manual grant.
+  if (isHr && !isBoss(me.role) && setting.timing === "ON_ONBOARDING_COMPLETION") {
+    throw new Error("This bonus is set to award on onboarding completion, not manual grant.");
+  }
+
+  const res = await awardOnboardingDiamonds(userId, me.id);
+  if (!res.ok && res.reason === "duplicate") throw new Error("Onboarding diamond bonus has already been issued to this staff.");
+  if (!res.ok) throw new Error("Could not award the onboarding bonus.");
+  if (res.ok && !res.awarded) throw new Error("Onboarding diamond bonus is currently disabled.");
+
+  revalidatePath("/users");
+  revalidatePath(`/users/${userId}`);
+}
+
+/** Reverse a wrongly-issued onboarding bonus (Owner / Boss only). */
+export async function reverseOnboardingBonus(userId: string) {
+  const me = await actor();
+  if (!isBoss(me.role)) throw new Error("Only the Owner can reverse an onboarding bonus.");
+  const res = await reverseOnboardingDiamonds(userId, me.id);
+  if (!res.ok && res.reason === "no_bonus") throw new Error("This staff has no onboarding bonus to reverse.");
+  if (!res.ok && res.reason === "already_reversed") throw new Error("This onboarding bonus has already been reversed.");
+  if (!res.ok) throw new Error("Could not reverse the onboarding bonus.");
+  revalidatePath("/users");
+  revalidatePath(`/users/${userId}`);
 }
 
 /** Update a user, respecting the editing role's field scope. */

@@ -19,6 +19,11 @@ export async function awardPoints(
     refType?: string;
     refId?: string;
     period?: string;
+    // Optional provenance for owner/system-generated grants (onboarding bonus, …)
+    sourceType?: string;
+    generatedBy?: string;
+    internalNote?: string;
+    status?: string;
   },
 ) {
   const period = args.period ?? currentPeriod();
@@ -31,6 +36,10 @@ export async function awardPoints(
       reason: args.reason,
       refType: args.refType,
       refId: args.refId,
+      sourceType: args.sourceType,
+      generatedBy: args.generatedBy,
+      internalNote: args.internalNote,
+      status: args.status ?? "APPROVED",
       period,
     },
   });
