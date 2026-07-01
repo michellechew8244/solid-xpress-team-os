@@ -1,0 +1,857 @@
+// Solid Xpress Team OS — Prisma schema
+// ---------------------------------------------------------------------------
+// PostgreSQL. Status/role/grade fields are kept as String columns with the
+// allowed values documented in src/lib/enums.ts (kept portable and low-churn);
+// they can be promoted to native Postgres enums later without changing queries.
+// The runtime client connects via the @prisma/adapter-pg driver adapter (pure
+// JS — works on Windows-on-ARM64 where Prisma's native engine cannot load).
+// ---------------------------------------------------------------------------
+
+generator client {
+  // Prisma 7 engine-less client (WASM query compiler) + pg driver adapter,
+  // wired up in src/lib/prisma.ts.
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Temporarily SQLite so the app runs locally without a Postgres server.
+  // The PostgreSQL version is saved in _pg_backup/ — switch back when a
+  // Postgres database is available.
+  provider = "sqlite"
+}
+
+// ===========================================================================
+// Organisation: Department, Role, User, StaffProfile
+// ===========================================================================
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique // e.g. SALES, OPS, FWD
+  // Monthly financial targets used by the boss dashboard (in MYR).
+  revenueTarget     Float  @default(0)
+  grossProfitTarget Float  @default(0)
+  description String?
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  users   User[]
+  kpis    KPI[]
+  tasks   Task[]
+  headId  String?
+}
+
+model User {
+  id            String   @id @default(cuid())
+  employeeCode  String?  @unique // HR staff code, e.g. SX-0007
+  email         String   @unique
+  passwordHash  String
+  name          String
+  // RBAC role. Allowed: SUPER_ADMIN, MANAGEMENT, DEPARTMENT_HEAD, STAFF, HR_ADMIN, FINANCE_ADMIN
+  role          String   @default("STAFF")
+  jobTitle      String?
+  phoneNumber   String?
+  avatarUrl     String?
+  // Employment status: ACTIVE, PROBATION, CONFIRMED, RESIGNED, TERMINATED, SUSPENDED
+  employmentStatus String @default("ACTIVE")
+  // Employment type: FULL_TIME, PART_TIME, CONTRACT, INTERN, PROBATION
+  employmentType String  @default("FULL_TIME")
+  // Login access gate: ACTIVE, INACTIVE, LOCKED
+  accessStatus  String   @default("ACTIVE")
+  joinDate      DateTime @default(now())
+  avatarColor   String   @default("#1b45d6")
+  isActive      Boolean  @default(true) // kept in sync with accessStatus == ACTIVE (legacy)
+  lastLoginAt   DateTime?
+  createdBy     String?
+  updatedBy     String?
+
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+
+  // Reporting manager (self relation)
+  managerId     String?
+  manager       User?    @relation("ReportsTo", fields: [managerId], references: [id])
+  reports       User[]   @relation("ReportsTo")
+
+  profile       StaffProfile?
+
+  // Points wallet aggregates (the PointsWallet concept, kept denormalised on the
+  // user for fast reads; recomputed from the PointsTransaction ledger).
+  currentPoints   Int @default(0)
+  lifetimePoints  Int @default(0)
+  deductedPoints  Int @default(0)
+  redeemedPoints  Int @default(0)
+  monthlyEarned   Int @default(0)
+  monthlyDeducted Int @default(0)
+
+  // Performance
+  performanceGrade String? // A..E
+  // Legacy points-tier level (auto-computed purely from lifetime points by
+  // levelForLifetime() — kept for backward compatibility, no longer shown in
+  // the UI). The Growth Roadmap's real, gated level is `officialLevel` below.
+  growthLevel      Int     @default(1) // 1..7
+  // Growth Roadmap level (1..7) — only changes via an approved LevelUpgradeRequest,
+  // gated on points + badges + grade + behaviour, not just points.
+  officialLevel    Int     @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  assignedTasks    Task[]            @relation("TaskAssignee")
+  reviewerTasks    Task[]            @relation("TaskReviewer")
+  createdTasks     Task[]            @relation("TaskCreator")
+  taskComments     TaskComment[]
+  pointsTx         PointsTransaction[]
+  rewardRedemptions RewardRedemption[]
+  badges           UserBadge[]
+  dailyReports     DailyReport[]
+  coachingAsStaff  CoachingRecord[]  @relation("CoachingStaff")
+  coachingAsCoach  CoachingRecord[]  @relation("CoachingCoach")
+  reviewsAsStaff   PerformanceReview[] @relation("ReviewStaff")
+  reviewsAsManager PerformanceReview[] @relation("ReviewManager")
+  trainingDone     TrainingCompletion[]
+  trainingsCreated Training[]        @relation("TrainingCreator")
+  quizAttempts     QuizAttempt[]
+  levelUpgradeRequests  LevelUpgradeRequest[] @relation("LevelUpgradeRequester")
+  levelUpgradeApprovals LevelUpgradeRequest[] @relation("LevelUpgradeApprover")
+  levelHistory          LevelHistory[]
+  levelMissions         UserLevelMission[]
+  notifications    Notification[]
+  kpiResults       KPIResult[]
+  uploads          Attachment[]
+  kpiOwned         KPI[]             @relation("KpiOwner")
+  kpiReviewed      KPI[]             @relation("KpiReviewer")
+  luckyDrawEntries LuckyDrawEntry[]
+  luckyDrawWins    LuckyDrawPrize[]
+}
+
+model StaffProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone       String?
+  kpiGroup    String?  // grouping label for KPI sets
+  bio         String?
+  // Attendance summary (simple counters for the MVP)
+  daysPresent Int @default(0)
+  daysLate    Int @default(0)
+  daysAbsent  Int @default(0)
+  // Onboarding checklist progress (0..100)
+  onboardingProgress Int @default(0)
+}
+
+// ===========================================================================
+// KPI
+// ===========================================================================
+
+model KPI {
+  id           String  @id @default(cuid())
+  name         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  category     String? // e.g. Sales, Accuracy, Punctuality
+  unit         String? // e.g. RM, %, count
+  weightage    Float   @default(1) // relative weight within department
+  targetValue  Float   @default(0)
+  formula      String? // human-readable formula / description
+  // Frequency: DAILY, WEEKLY, MONTHLY, QUARTERLY
+  frequency    String  @default("MONTHLY")
+  pointReward  Int     @default(10)
+  // KPI Points = achievementRate × pointMultiplier, capped at maxPoints.
+  pointMultiplier Float @default(1)
+  maxPoints    Int     @default(250)
+  penaltyPoint Int     @default(0)
+  dataSource   String?
+  evidenceRequired Boolean @default(false)
+  status       String  @default("ACTIVE") // ACTIVE, INACTIVE
+
+  ownerId      String?
+  owner        User?   @relation("KpiOwner", fields: [ownerId], references: [id])
+  reviewerId   String?
+  reviewer     User?   @relation("KpiReviewer", fields: [reviewerId], references: [id])
+
+  createdAt DateTime @default(now())
+  results   KPIResult[]
+}
+
+model KPIResult {
+  id          String  @id @default(cuid())
+  kpiId       String
+  kpi         KPI     @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  userId      String  // staff the result belongs to
+  user        User    @relation(fields: [userId], references: [id])
+  period      String  // e.g. "2026-07" or "2026-W27"
+  actualValue Float   @default(0)
+  achievementPct Float @default(0) // computed actual/target * 100
+  pointsAwarded  Int   @default(0) // computed points (credited to wallet only on review)
+  credited    Boolean @default(false) // true once KPI points added to wallet (idempotency)
+  status      String  @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
+  evidenceUrl String?
+  reviewerId  String?
+  reviewerComment String?
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([kpiId, userId, period])
+}
+
+// ===========================================================================
+// Task / Mission Board
+// ===========================================================================
+
+model Task {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  assigneeId   String?
+  assignee     User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reviewerId   String?
+  reviewer     User?    @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  createdById  String?
+  createdBy    User?    @relation("TaskCreator", fields: [createdById], references: [id])
+
+  // Type: DAILY, WEEKLY, SPECIAL_PROJECT, CUSTOMER_ISSUE, SHIPMENT_ISSUE,
+  // FINANCE_ISSUE, SALES_FOLLOWUP, PERMIT_FOLLOWUP, HAULAGE_FOLLOWUP,
+  // RUNNER_TASK, MANAGEMENT_INSTRUCTION
+  type         String   @default("DAILY")
+  // Priority: LOW, MEDIUM, HIGH, URGENT
+  priority     String   @default("MEDIUM")
+  // Difficulty multiplier band: SIMPLE 1.0, NORMAL 1.2, IMPORTANT 1.5, URGENT 2.0, HIGH_RISK 2.5
+  difficulty   String   @default("NORMAL")
+  // Timeliness band recorded at completion: EARLY 1.2, ON_TIME 1.0, LATE_EXPLAINED 0.6, LATE_UNEXPLAINED 0, REJECTED 0
+  timeliness   String?
+  // Status: NOT_STARTED, IN_PROGRESS, WAITING_EXTERNAL, COMPLETED, REJECTED, OVERDUE
+  status       String   @default("NOT_STARTED")
+  deadline     DateTime?
+  completedAt  DateTime?
+  approvedAt   DateTime?
+  rejectReason String?
+
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  jobId        String?
+  job          Job?     @relation(fields: [jobId], references: [id])
+
+  pointsValue  Int      @default(10) // points awarded on approval
+  pointsAwarded Boolean @default(false)
+  proofUrl     String?  // proof of completion (path or note)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  checklist    TaskChecklist[]
+  comments     TaskComment[]
+  attachments  Attachment[]
+}
+
+model TaskChecklist {
+  id       String  @id @default(cuid())
+  taskId   String
+  task     Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label    String
+  done     Boolean @default(false)
+  order    Int     @default(0)
+}
+
+model TaskComment {
+  id       String   @id @default(cuid())
+  taskId   String
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User     @relation(fields: [authorId], references: [id])
+  body     String
+  createdAt DateTime @default(now())
+}
+
+// ===========================================================================
+// Logistics: Customer, Job, JobMilestone
+// ===========================================================================
+
+model Customer {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  code      String? @unique
+  contact   String?
+  email     String?
+  phone     String?
+  // Risk flag surfaced on boss dashboard
+  atRisk    Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  jobs      Job[]
+  tasks     Task[]
+}
+
+model Job {
+  id           String  @id @default(cuid())
+  jobNumber    String  @unique
+  direction    String  @default("IMPORT") // IMPORT, EXPORT
+  // Mode: SEA, AIR, LAND, FORWARDING, HAULAGE, WAREHOUSE, TRANSLOADING, COURIER
+  mode         String  @default("SEA")
+
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  consignee    String?
+  shipper      String?
+
+  pol          String?  // port of loading
+  pod          String?  // port of discharge
+  vesselName   String?
+  voyage       String?
+  flightDetails String?
+  etd          DateTime?
+  eta          DateTime?
+  closingDate  DateTime?
+  arrivalDate  DateTime?
+
+  containerNumber String?
+  quantity     String?
+  goodsDescription String?
+  serviceRequired String?
+  permitRequired  Boolean @default(false)
+  customsFormType String? // K1/K2/K3/K8/ZB
+
+  // Assigned staff per function (stored as user ids; names resolved in app)
+  assignedCsId       String?
+  assignedOpsId      String?
+  assignedFwdId      String?
+  assignedRunnerId   String?
+  assignedFinanceId  String?
+
+  status         String @default("OPEN") // OPEN, IN_PROGRESS, CLOSED, ON_HOLD
+  billingStatus  String @default("UNBILLED") // UNBILLED, BILLED, PARTIAL
+  collectionStatus String @default("PENDING") // PENDING, PARTIAL, COLLECTED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  milestones JobMilestone[]
+  tasks      Task[]
+  finance    FinanceRecord?
+}
+
+model JobMilestone {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // Stage key, see src/lib/enums.ts MILESTONES
+  stage     String
+  label     String
+  done      Boolean  @default(false)
+  doneAt    DateTime?
+  order     Int      @default(0)
+}
+
+// ===========================================================================
+// Points / Rewards / Ranking / Badges
+// ===========================================================================
+
+model PointsTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Positive for earn, negative for deduction/redemption
+  amount    Int
+  // Type: TASK, KPI, COMPLIMENT, TEAMWORK, PROBLEM_SOLVED, SALES, COST_SAVING,
+  // PENALTY_PREVENTED, SOP, MENTORING, CONTENT, ZERO_MISTAKE, PENALTY, REDEMPTION, MANUAL
+  type      String
+  reason    String
+  // Link back to source entity (optional)
+  refType   String?
+  refId     String?
+  period    String   // "2026-07" — used for monthly leaderboard
+  createdAt DateTime @default(now())
+}
+
+model Reward {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  // Category: CASH_VOUCHER, MEAL_VOUCHER, EXTRA_LEAVE, COMPANY_GIFT,
+  // TRAINING, LUCKY_DRAW, MYSTERY_GIFT, ANNUAL_DINNER, PROMOTION_BADGE, RECOGNITION
+  category    String  @default("COMPANY_GIFT")
+  pointsCost  Int
+  stock       Int     @default(-1) // -1 = unlimited
+  imageEmoji  String  @default("🎁")
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  redemptions RewardRedemption[]
+}
+
+model RewardRedemption {
+  id        String   @id @default(cuid())
+  rewardId  String
+  reward    Reward   @relation(fields: [rewardId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  pointsSpent Int
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED, FULFILLED
+  note      String?
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Badge {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String
+  criteria    String
+  icon        String  @default("🏅")
+  // Department eligibility code or "ALL"
+  departmentEligibility String @default("ALL")
+  pointsBonus Int     @default(0)
+  autoAward   Boolean @default(false) // false = approval required
+
+  users       UserBadge[]
+  levelMissions LevelMission[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  awardedBy String?  // user id of the manager/HR who granted it
+  awardedAt DateTime @default(now())
+  note      String?  // reason
+
+  @@unique([userId, badgeId])
+}
+
+// ===========================================================================
+// Daily report / Coaching / Performance review
+// ===========================================================================
+
+model DailyReport {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime @default(now())
+  completed   String   // what was completed today
+  pending     String?  // still pending
+  needHelp    String?  // problem needing help
+  customerFocus String? // customer/job needing attention
+  priorities  String?  // tomorrow's top 3 (newline separated)
+  energyLevel Int      @default(3) // 1..5
+  confidenceLevel Int  @default(3) // 1..5
+  createdAt   DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model CoachingRecord {
+  id           String   @id @default(cuid())
+  staffId      String
+  staff        User     @relation("CoachingStaff", fields: [staffId], references: [id])
+  coachId      String
+  coach        User     @relation("CoachingCoach", fields: [coachId], references: [id])
+  // Category: KPI_MISSED, TASK_MISSED, BEHAVIOUR, OTHER
+  category     String   @default("KPI_MISSED")
+  issue        String
+  // What triggered it: MANUAL, LOW_SCORE, LOW_KPI, REPEAT_MISTAKE, OVERDUE, COMPLAINT, HIGH_DEDUCTION, RED_LINE
+  triggeredBy  String   @default("MANUAL")
+  coachingNote String?
+  improvementAction String?
+  deadline     DateTime?
+  managerComment String?
+  staffAcknowledged Boolean @default(false)
+  followUpDate DateTime?
+  status       String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, ESCALATED
+  createdAt    DateTime @default(now())
+}
+
+model PerformanceReview {
+  id          String   @id @default(cuid())
+  staffId     String
+  staff       User     @relation("ReviewStaff", fields: [staffId], references: [id])
+  managerId   String?
+  manager     User?    @relation("ReviewManager", fields: [managerId], references: [id])
+  period      String   // "2026-07"
+  // Weighted monthly score: KPI 50% + Task 20% + Accuracy 15% + Teamwork 10% + Discipline 5%
+  kpiScore        Float @default(0)
+  taskScore       Float @default(0)
+  accuracyScore   Float @default(0)
+  teamworkScore   Float @default(0)
+  disciplineScore Float @default(0)
+  totalScore      Float @default(0)
+  pointScore      Float @default(0)
+  attendanceScore Float @default(0)
+  customerScore   Float @default(0)
+  managerRating   Float @default(0)
+  finalGrade      String? // A_PLUS, A, B, C, D, E
+  rewardRecommendation String?
+  promotionRecommendation String?
+  improvementPlan String?
+  createdAt   DateTime @default(now())
+
+  @@unique([staffId, period])
+}
+
+// ===========================================================================
+// Training
+// ===========================================================================
+
+model Training {
+  id          String  @id @default(cuid())
+  title       String
+  departmentEligibility String @default("ALL")
+  // External links (optional) — kept for YouTube/Drive-hosted material.
+  videoLink   String?
+  sopDocument String?
+  description String?
+  passingMark Int     @default(70)
+  pointsAward Int     @default(20)
+  isActive    Boolean @default(true)
+  createdById String?
+  createdBy   User?   @relation("TrainingCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  completions TrainingCompletion[]
+  // Uploaded course material (video / PPT / PDF) — see Attachment.kind.
+  materials   Attachment[]
+  // Quiz session shown after the training material.
+  quizQuestions QuizQuestion[]
+  quizAttempts  QuizAttempt[]
+}
+
+model TrainingCompletion {
+  id         String   @id @default(cuid())
+  trainingId String
+  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  score      Int      @default(0)
+  passed     Boolean  @default(false)
+  completedAt DateTime?
+  status     String   @default("ASSIGNED") // ASSIGNED, IN_PROGRESS, PASSED, FAILED
+  // Optional proof of completion the staff member uploads (certificate, screenshot).
+  proofUrl   String?
+  // Set when the score came from a graded QuizAttempt rather than manual self-report.
+  fromQuiz   Boolean  @default(false)
+
+  @@unique([trainingId, userId])
+}
+
+// ===========================================================================
+// Quiz — shown after a training's material (video/slides) is reviewed.
+// ===========================================================================
+
+model QuizQuestion {
+  id         String  @id @default(cuid())
+  trainingId String
+  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  question   String
+  order      Int     @default(0)
+  isActive   Boolean @default(true) // soft-delete — preserves historical answers
+  createdAt  DateTime @default(now())
+
+  options    QuizOption[]
+  answers    QuizAnswer[]
+}
+
+model QuizOption {
+  id         String  @id @default(cuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String
+  isCorrect  Boolean @default(false)
+  order      Int     @default(0)
+
+  answers    QuizAnswer[]
+}
+
+model QuizAttempt {
+  id             String   @id @default(cuid())
+  trainingId     String
+  training       Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  score          Int      @default(0) // percentage correct
+  passed         Boolean  @default(false)
+  totalQuestions Int      @default(0)
+  correctCount   Int      @default(0)
+  submittedAt    DateTime @default(now())
+
+  answers        QuizAnswer[]
+}
+
+model QuizAnswer {
+  id               String   @id @default(cuid())
+  attemptId        String
+  attempt          QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         QuizQuestion @relation(fields: [questionId], references: [id])
+  selectedOptionId String?
+  selectedOption   QuizOption?  @relation(fields: [selectedOptionId], references: [id])
+  isCorrect        Boolean  @default(false)
+}
+
+// ===========================================================================
+// Notification / Attachment / Finance
+// ===========================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Type maps to events in section K
+  type      String
+  title     String
+  body      String?
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  filename  String
+  url       String   // public path under /uploads, or an external URL
+  mimeType  String?
+  sizeBytes Int      @default(0)
+  // What this file is for training uploads: VIDEO, SLIDES, OTHER. Null for
+  // plain task proof attachments (unchanged behaviour).
+  kind      String?
+  uploadedById String?
+  uploadedBy   User? @relation(fields: [uploadedById], references: [id])
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id])
+  trainingId String?
+  training  Training? @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model FinanceRecord {
+  id          String  @id @default(cuid())
+  jobId       String  @unique
+  job         Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sellingPrice Float  @default(0)
+  cost         Float  @default(0)
+  grossProfit  Float  @default(0) // sellingPrice - cost
+  invoiceIssued Boolean @default(false)
+  invoiceDate   DateTime?
+  supplierInvoiceChecked Boolean @default(false)
+  paymentCollected Boolean @default(false)
+  disbursementClaimed Boolean @default(false)
+  shortBilling  Boolean @default(false) // alert flag
+  salespersonId String? // for GP by salesperson
+  createdAt DateTime @default(now())
+}
+
+// ===========================================================================
+// Penalty rules (section: deduction / punishment system)
+// ===========================================================================
+
+model PenaltyRule {
+  id           String  @id @default(cuid())
+  name         String
+  departmentId String? // null = applies to all departments
+  description  String?
+  deductionPoints Int  @default(0) // positive number; applied as a negative transaction
+  // Severity: LOW, MEDIUM, HIGH, CRITICAL
+  severity     String  @default("MEDIUM")
+  requiresManagerApproval Boolean @default(false)
+  // If true, applying this rule auto-creates a coaching record.
+  coachingTrigger Boolean @default(false)
+  // Integrity / red-line case (not just a deduction — escalates).
+  isRedLine    Boolean @default(false)
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
+}
+
+// ===========================================================================
+// Lucky Draw system
+// ===========================================================================
+
+model LuckyDrawCampaign {
+  id          String   @id @default(cuid())
+  title       String
+  // Template type: MONTHLY_MINI, QUARTERLY_CHAMPION, ANNUAL_MEGA, ZERO_MISTAKE, TEAMWORK, CUSTOMER_HERO
+  campaignType String  @default("MONTHLY_MINI")
+  description String?
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  drawDate    DateTime?
+  entryRule   String?  // human-readable description of how entries are earned
+  pointsPerEntry Int   @default(0) // if > 0, staff may buy entries with points
+  // Status: UPCOMING, ACTIVE, CLOSED, DRAWN
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  entries     LuckyDrawEntry[]
+  prizes      LuckyDrawPrize[]
+}
+
+model LuckyDrawEntry {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   LuckyDrawCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  entryCount Int      @default(1)
+  // How earned: KPI_SCORE, COMPLIMENT, ZERO_OVERDUE, BADGE, TICKET, TEAMWORK, ZERO_MISTAKE, MANUAL
+  sourceType String   @default("MANUAL")
+  sourceId   String?
+  // True once the staff member has played the "Spin to Celebrate" moment for
+  // this batch of goal-earned entries (so it only fires once, not every visit).
+  celebrated Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model LuckyDrawPrize {
+  id           String  @id @default(cuid())
+  campaignId   String
+  campaign     LuckyDrawCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prizeName    String
+  prizeDescription String?
+  prizeValue   Float   @default(0)
+  quantity     Int     @default(1)
+  winnerUserId String?
+  winner       User?   @relation(fields: [winnerUserId], references: [id])
+  // Status: AVAILABLE, WON, CLAIMED
+  status       String  @default("AVAILABLE")
+  order        Int     @default(0)
+}
+
+// ===========================================================================
+// System settings — company-level toggles (e.g. leave-redemption blocks)
+// ===========================================================================
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+// ===========================================================================
+// Audit log — records sensitive user-management actions.
+// ===========================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  // e.g. USER_CREATED, USER_UPDATED, ROLE_CHANGED, DEPARTMENT_CHANGED,
+  // PASSWORD_RESET, USER_DEACTIVATED, USER_REACTIVATED, STATUS_CHANGED
+  action      String
+  entityType  String   @default("USER")
+  entityId    String
+  performedBy String   // user id of actor
+  actorName   String?  // denormalised for easy display
+  oldValue    String?  // JSON snapshot
+  newValue    String?  // JSON snapshot
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// ===========================================================================
+// Growth Roadmap — gated level rules, upgrade requests/history, and missions.
+// (User.officialLevel is the level actually shown in the roadmap/top bar.)
+// ===========================================================================
+
+model LevelRule {
+  id           String  @id @default(cuid())
+  levelNumber  Int     @unique // 1..7
+  levelName    String
+  description  String?
+  minLifetimePoints Int @default(0)
+  minBadgeCount     Int @default(0)
+  // Minimum grade letter required: E, D, C, B, A, A_PLUS (null = no grade requirement).
+  requiredGrade String?
+  // How many *consecutive* months that grade (or better) must have been hit.
+  requiredConsecutiveGradeMonths Int @default(1)
+  requiredZeroMistake  Boolean @default(false) // no red-line / no penalty in current month
+  requiredTeamworkCount Int @default(0)
+  requiredSpecialContributionCount Int @default(0)
+  // Comma-separated badge names — at least ONE must be held (e.g. "Mentor,SOP Builder").
+  requiredBadgeNames String?
+  requiresManagerApproval Boolean @default(false) // Department Head
+  requiresHRApproval      Boolean @default(false)
+  requiresBossApproval    Boolean @default(false)
+  rewardDescription String? // newline-separated bullet list
+  bonusPoints  Int     @default(0)
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+}
+
+model LevelUpgradeRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("LevelUpgradeRequester", fields: [userId], references: [id], onDelete: Cascade)
+  fromLevel    Int
+  toLevel      Int
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  requestedAt  DateTime @default(now())
+  approvedById String?
+  approvedBy   User?    @relation("LevelUpgradeApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  rejectionReason String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+}
+
+model LevelHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromLevel    Int
+  toLevel      Int
+  reason       String?
+  approvedById String?
+  bonusPointsAwarded Int @default(0)
+  createdAt    DateTime @default(now())
+}
+
+model LevelMission {
+  id           String  @id @default(cuid())
+  title        String
+  description  String?
+  levelTarget  Int      // the level this mission helps a staff member reach
+  pointsReward Int      @default(0)
+  badgeRewardId String?
+  badgeReward  Badge?   @relation(fields: [badgeRewardId], references: [id])
+  // EASY, NORMAL, CHALLENGE, ADVANCED
+  difficulty   String   @default("NORMAL")
+  // AUTO_TASKS_ON_TIME, AUTO_DAILY_REPORTS, AUTO_GRADE, AUTO_BADGE, MANUAL
+  missionType  String   @default("MANUAL")
+  targetValue  Int      @default(1)
+  departmentEligibility String @default("ALL")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  userProgress UserLevelMission[]
+}
+
+model UserLevelMission {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  missionId    String
+  mission      LevelMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  // NOT_STARTED, IN_PROGRESS, COMPLETED
+  status       String   @default("NOT_STARTED")
+  progressValue Int     @default(0)
+  targetValue  Int      @default(1)
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@unique([userId, missionId])
+}

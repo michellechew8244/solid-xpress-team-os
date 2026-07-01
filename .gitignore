@@ -1,0 +1,31 @@
+node_modules
+.next
+out
+build
+dist
+
+# env
+.env
+.env*.local
+
+# database (sqlite dev)
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+
+# uploaded training material (video/PPT/PDF) — binary, not source
+public/uploads/*
+!public/uploads/.gitkeep
+!public/uploads/training/
+public/uploads/training/*
+!public/uploads/training/.gitkeep
+
+# local dev scratch backups (not part of the shipped app)
+_pg_backup/
+_sqlite_backup/
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
