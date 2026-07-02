@@ -6,6 +6,7 @@ import {
   addQuizQuestion, toggleQuizQuestion, submitQuizAttempt,
 } from "@/app/(app)/training/actions";
 import { stageUploads } from "@/lib/upload-client";
+import { FileDropZone } from "@/components/FileDropZone";
 
 const DEPTS = ["ALL", "MKT", "SALES", "CS", "OPS", "FWD", "HAUL", "RUN", "DISP", "FIN", "HR"];
 
@@ -34,14 +35,18 @@ export function NewTrainingForm() {
           <div className="sm:col-span-2"><label className="label">Description</label><input name="description" className="input" /></div>
 
           <div className="sm:col-span-2 mt-2 border-t border-slate-100 pt-3 text-xs font-semibold uppercase text-ink-muted">Upload material</div>
-          <div>
-            <label className="label">🎬 Video file (mp4/webm, max 150MB)</label>
-            <input name="videoFile" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" className="input" />
-          </div>
-          <div>
-            <label className="label">📑 Slides (PPT/PDF, max 25MB)</label>
-            <input name="slidesFile" type="file" accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf" className="input" />
-          </div>
+          <FileDropZone
+            name="videoFile"
+            accept="video/mp4,video/webm,video/ogg,video/quicktime"
+            label="🎬 Video file"
+            hint="mp4/webm · max 150MB"
+          />
+          <FileDropZone
+            name="slidesFile"
+            accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf"
+            label="📑 Slides (PPT/PDF)"
+            hint="max 25MB"
+          />
           <div><label className="label">Or external video link</label><input name="videoLink" className="input" placeholder="https://youtube.com/…" /></div>
           <div><label className="label">Or external SOP link</label><input name="sopDocument" className="input" placeholder="https://…" /></div>
 
@@ -72,8 +77,8 @@ export function AddMaterialForm({ trainingId }: { trainingId: string }) {
           className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3"
         >
           <input type="hidden" name="trainingId" value={trainingId} />
-          <div><label className="label">🎬 Video file</label><input name="videoFile" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" className="input" /></div>
-          <div><label className="label">📑 Slides (PPT/PDF)</label><input name="slidesFile" type="file" accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf" className="input" /></div>
+          <FileDropZone name="videoFile" accept="video/mp4,video/webm,video/ogg,video/quicktime" label="🎬 Video file" hint="mp4/webm · max 150MB" />
+          <FileDropZone name="slidesFile" accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf" label="📑 Slides (PPT/PDF)" hint="max 25MB" />
           {err && <div className="rounded-lg bg-rose-50 px-2 py-1 text-xs text-rose-700">{err}</div>}
           <div className="flex gap-2"><button className="btn-primary px-3 py-1 text-xs" disabled={pending}>{pending ? "Uploading…" : "Upload"}</button><button type="button" className="btn-ghost px-3 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button></div>
         </form>
@@ -117,7 +122,7 @@ export function CompleteTrainingForm({ trainingId, defaultScore }: { trainingId:
         >
           <input type="hidden" name="trainingId" value={trainingId} />
           <div><label className="label">Quiz score (%)</label><input name="score" type="number" min={0} max={100} defaultValue={defaultScore ?? 100} className="input" required /></div>
-          <div><label className="label">Certificate / proof (optional)</label><input name="proofFile" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="input" /></div>
+          <FileDropZone name="proofFile" accept="image/png,image/jpeg,image/webp,application/pdf" capture="environment" label="Certificate / proof (optional)" hint="image or PDF · max 10MB" />
           {err && <div className="rounded-lg bg-rose-50 px-2 py-1 text-xs text-rose-700">{err}</div>}
           <div className="flex gap-2"><button className="btn-primary px-3 py-1 text-xs" disabled={pending}>{pending ? "Submitting…" : "Submit"}</button><button type="button" className="btn-ghost px-3 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button></div>
         </form>

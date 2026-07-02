@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { clockIn, clockOut, markAttendance } from "@/app/(app)/attendance/actions";
 import { uploadProofPhoto } from "@/lib/upload-client";
+import { FileDropZone } from "@/components/FileDropZone";
 
 export function ClockButtons({ clockedIn, clockedOut }: { clockedIn: boolean; clockedOut: boolean }) {
   const [pending, start] = useTransition();
@@ -26,10 +27,18 @@ export function ClockButtons({ clockedIn, clockedOut }: { clockedIn: boolean; cl
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
       {!done && (
-        <label className="text-xs text-ink-muted">
-          📷 Photo proof (optional)
-          <input ref={photoRef} type="file" accept="image/png,image/jpeg,image/webp" capture="environment" className="input mt-1" />
-        </label>
+        <div className="w-full sm:w-64">
+          {/* key remounts the zone after each clock action so the old file is cleared */}
+          <FileDropZone
+            key={`${clockedIn}-${clockedOut}`}
+            name="photo"
+            accept="image/png,image/jpeg,image/webp"
+            capture="environment"
+            label="📷 Photo proof (optional)"
+            hint="PNG/JPG/WebP · drag it in or tap to snap"
+            inputRef={photoRef}
+          />
+        </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
         {!clockedIn && <button className="btn-primary" disabled={pending} onClick={() => run(clockIn)}>{pending ? "Uploading…" : "🕘 Clock In"}</button>}

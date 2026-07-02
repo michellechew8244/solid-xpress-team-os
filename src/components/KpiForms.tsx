@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { submitKpiActual, reviewKpiResult } from "@/app/(app)/kpi/actions";
 import { uploadProofPhoto } from "@/lib/upload-client";
+import { FileDropZone } from "@/components/FileDropZone";
 
 export function KpiEntryRow({
   kpi,
@@ -45,9 +46,15 @@ export function KpiEntryRow({
         <label className="label">Actual</label>
         <input name="actualValue" type="number" step="any" defaultValue={result?.actualValue ?? ""} className="input w-28" disabled={locked} required />
       </div>
-      <div>
-        <label className="label">📷 Proof photo</label>
-        <input name="evidencePhoto" type="file" accept="image/png,image/jpeg,image/webp" capture="environment" className="input w-48" disabled={locked} />
+      <div className="w-56">
+        <FileDropZone
+          name="evidencePhoto"
+          accept="image/png,image/jpeg,image/webp"
+          capture="environment"
+          label="📷 Proof photo"
+          hint="drag & drop your work photo"
+          disabled={locked}
+        />
       </div>
       {kpi.evidenceRequired && (
         <div>
