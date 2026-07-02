@@ -42,6 +42,7 @@ export const NAV: NavGroup[] = [
       { href: "/rewards", label: "Reward Store", icon: "🎁" },
       { href: "/badges", label: "Badge Centre", icon: "🏅" },
       { href: "/lucky-draw", label: "Lucky Draw", icon: "🎰" },
+      { href: "/wishing-tree", label: "Wishing Tree", icon: "🌳" },
       { href: "/training", label: "Training Centre", icon: "📚" },
     ],
   },

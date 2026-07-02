@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBoss } from "@/lib/rbac";
-import { klNow } from "@/lib/attendance";
+import { klNow, computeStreak } from "@/lib/attendance";
+import { STREAK_MILESTONES } from "@/lib/games";
 import { Avatar, Card, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { ClockButtons, MarkAttendanceForm } from "@/components/AttendanceControls";
+import { DailySpinGame } from "@/components/DailySpinGame";
 
 const STATUS_PILL: Record<string, string> = { PRESENT: "OK", LATE: "WARN", ABSENT: "DANGER", LEAVE: "COMPLETED" };
 
@@ -19,7 +21,7 @@ export default async function AttendancePage() {
   const isManager = isBoss(user.role) || user.role === "HR_ADMIN" || user.role === "DEPARTMENT_HEAD";
   const deptScope = isBoss(user.role) || user.role === "HR_ADMIN" ? {} : { departmentId: user.departmentId ?? "" };
 
-  const [today, myMonth, teamMonth, staff] = await Promise.all([
+  const [today, myMonth, teamMonth, staff, todaySpin, streak] = await Promise.all([
     prisma.attendanceRecord.findUnique({ where: { userId_date: { userId: user.id, date: dateStr } } }),
     prisma.attendanceRecord.findMany({ where: { userId: user.id, period }, orderBy: { date: "desc" } }),
     isManager
@@ -28,9 +30,12 @@ export default async function AttendancePage() {
     isManager
       ? prisma.user.findMany({ where: { role: { in: ["STAFF", "DEPARTMENT_HEAD"] }, isActive: true, ...deptScope }, orderBy: { name: "asc" }, select: { id: true, name: true } })
       : Promise.resolve([]),
+    prisma.dailySpin.findUnique({ where: { userId_date: { userId: user.id, date: dateStr } } }),
+    computeStreak(user.id, dateStr),
   ]);
 
   const count = (s: string) => myMonth.filter((r) => r.status === s).length;
+  const nextMilestone = Object.keys(STREAK_MILESTONES).map(Number).sort((a, b) => a - b).find((d) => d > streak);
 
   return (
     <>
@@ -47,6 +52,37 @@ export default async function AttendancePage() {
         </div>
         <p className="mt-2 text-xs text-ink-muted">Clock-in after 09:15 is recorded as Late.</p>
       </Card>
+
+      {/* 🎮 Check-in games */}
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <SectionTitle>🔥 Check-in Streak</SectionTitle>
+          <div className="flex items-end gap-3">
+            <div className="text-5xl font-black text-brand-600">{streak}</div>
+            <div className="pb-1 text-sm text-ink-muted">day{streak === 1 ? "" : "s"} in a row</div>
+          </div>
+          {nextMilestone ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              {nextMilestone - streak} more day{nextMilestone - streak === 1 ? "" : "s"} to unlock <strong className="text-ink">+{STREAK_MILESTONES[nextMilestone]} 💎</strong> at a {nextMilestone}-day streak.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-ok">🏆 You&apos;ve hit the top streak milestone — legendary consistency!</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Object.entries(STREAK_MILESTONES).map(([d, b]) => (
+              <span key={d} className={`badge ${streak >= Number(d) ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                {streak >= Number(d) ? "✅" : "🎯"} {d}d → +{b}💎
+              </span>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <SectionTitle>🎡 Daily Check-in Spin</SectionTitle>
+          <p className="mb-2 -mt-1 text-xs text-ink-muted">One free spin every day you clock in. Win 2–20 diamonds!</p>
+          <DailySpinGame clockedIn={Boolean(today?.clockIn)} alreadySpun={Boolean(todaySpin)} />
+        </Card>
+      </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Present (month)" value={count("PRESENT")} icon="✅" rag="ok" />

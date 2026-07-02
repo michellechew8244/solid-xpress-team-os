@@ -11,7 +11,7 @@ export function ClockButtons({ clockedIn, clockedOut }: { clockedIn: boolean; cl
   const photoRef = useRef<HTMLInputElement>(null);
 
   // Uploads the selected photo (if any) straight to cloud storage, then clocks.
-  const run = (fn: (photoUrl?: string | null) => Promise<void>) => {
+  const run = (fn: (photoUrl?: string | null) => Promise<unknown>) => {
     setErr(null);
     start(async () => {
       try {

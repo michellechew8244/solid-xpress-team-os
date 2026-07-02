@@ -128,6 +128,8 @@ model User {
   luckyDrawEntries LuckyDrawEntry[]
   luckyDrawWins    LuckyDrawPrize[]
   attendance       AttendanceRecord[]
+  dailySpins       DailySpin[]
+  wishes           Wish[]
 }
 
 model StaffProfile {
@@ -449,6 +451,45 @@ model AttendanceRecord {
 
   @@unique([userId, date])
   @@index([period])
+}
+
+// One-spin-per-day check-in reward wheel. A row exists only after the user has
+// spun; the diamond prize is posted to the points ledger (sourceType DAILY_SPIN).
+model DailySpin {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String   // "2026-07-02" (Asia/Kuala_Lumpur day)
+  prize     Int      // diamonds won
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+// ===========================================================================
+// Wishing Tree — staff plant a wish tied to a "Mission Impossible" challenge.
+// Boss approves/rejects the wish; on approval the challenge is live; staff
+// submit proof; Boss verifies and grants (or fails) the wish.
+// ===========================================================================
+model Wish {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String    // the wish itself
+  description  String?
+  emoji        String    @default("🌟")
+  challenge    String    // the mission-impossible commitment
+  evidenceUrl  String?   // proof of challenge completion
+  // PENDING | APPROVED (challenge running) | REJECTED | PROOF_SUBMITTED | GRANTED | FAILED
+  status       String    @default("PENDING")
+  decisionNote String?   // boss note on reject/grant/fail
+  decidedById  String?
+  decidedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([status])
 }
 
 // ===========================================================================
