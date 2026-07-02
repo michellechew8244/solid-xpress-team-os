@@ -127,6 +127,7 @@ model User {
   kpiReviewed      KPI[]             @relation("KpiReviewer")
   luckyDrawEntries LuckyDrawEntry[]
   luckyDrawWins    LuckyDrawPrize[]
+  attendance       AttendanceRecord[]
 }
 
 model StaffProfile {
@@ -424,6 +425,77 @@ model DiamondRequest {
   updatedAt     DateTime  @default(now()) @updatedAt
 
   @@index([status])
+}
+
+// ===========================================================================
+// Attendance — daily clock-in/out ledger. StaffProfile counters
+// (daysPresent/daysLate/daysAbsent) are recomputed from this ledger.
+// ===========================================================================
+model AttendanceRecord {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date     String    // "2026-07-02" (Asia/Kuala_Lumpur calendar day)
+  clockIn  DateTime?
+  clockOut DateTime?
+  status   String    @default("PRESENT") // PRESENT | LATE | ABSENT | LEAVE
+  note     String?
+  period   String    // "2026-07"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, date])
+  @@index([period])
+}
+
+// ===========================================================================
+// Announcements — company/department comms with read receipts.
+// ===========================================================================
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  audience    String   @default("ALL") // "ALL" or a departmentId
+  pinned      Boolean  @default(false)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  reads AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  readAt         DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
+
+// ===========================================================================
+// Onboarding checklist — HR-defined steps; per-staff completion drives
+// StaffProfile.onboardingProgress and can trigger the onboarding diamond bonus.
+// ===========================================================================
+model OnboardingTemplateItem {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  order       Int     @default(0)
+  active      Boolean @default(true)
+
+  statuses OnboardingItemStatus[]
+}
+
+model OnboardingItemStatus {
+  id       String                 @id @default(cuid())
+  userId   String
+  itemId   String
+  item     OnboardingTemplateItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  doneAt   DateTime               @default(now())
+  doneById String?
+
+  @@unique([userId, itemId])
 }
 
 // Singleton config for the Diamond Authority module (Owner-controlled).

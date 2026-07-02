@@ -18,13 +18,16 @@ export const NAV: NavGroup[] = [
     group: "Overview",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "📊" },
+      { href: "/announcements", label: "Announcements", icon: "📢" },
       { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
       { href: "/ceremony", label: "Recognition", icon: "🎤" },
+      { href: "/reports", label: "Monthly Report", icon: "📑", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
     ],
   },
   {
     group: "Work",
     items: [
+      { href: "/attendance", label: "Attendance", icon: "⏰" },
       { href: "/missions", label: "Mission Board", icon: "🎯" },
       { href: "/jobs", label: "Job Board", icon: "📦" },
       { href: "/kpi", label: "KPI Dashboard", icon: "📈" },
@@ -62,6 +65,7 @@ export const NAV: NavGroup[] = [
       { href: "/users", label: "User Management", icon: "👥", roles: ["SUPER_ADMIN", "HR_ADMIN"] },
       { href: "/users", label: "Staff Directory", icon: "👥", roles: ["MANAGEMENT"] },
       { href: "/users", label: "My Team", icon: "👥", roles: ["DEPARTMENT_HEAD"] },
+      { href: "/onboarding", label: "Onboarding", icon: "📋" },
       { href: "/departments", label: "Departments", icon: "🏢", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
       { href: "/profile", label: "My Profile", icon: "🪪" },
     ],
