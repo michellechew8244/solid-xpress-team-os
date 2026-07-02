@@ -5,6 +5,7 @@ import {
   createTraining, addTrainingMaterial, deleteTrainingMaterial, toggleTraining, submitCompletion,
   addQuizQuestion, toggleQuizQuestion, submitQuizAttempt,
 } from "@/app/(app)/training/actions";
+import { stageUploads } from "@/lib/upload-client";
 
 const DEPTS = ["ALL", "MKT", "SALES", "CS", "OPS", "FWD", "HAUL", "RUN", "DISP", "FIN", "HR"];
 
@@ -20,7 +21,7 @@ export function NewTrainingForm() {
       {open && (
         <form
           ref={ref}
-          action={(fd) => start(async () => { setErr(null); try { await createTraining(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
+          action={(fd) => start(async () => { setErr(null); try { await stageUploads(fd, [{ field: "videoFile", category: "video" }, { field: "slidesFile", category: "slides" }]); await createTraining(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
           className="card mt-3 grid gap-3 p-4 sm:grid-cols-2"
         >
           <div className="sm:col-span-2"><label className="label">Title *</label><input name="title" className="input" required /></div>
@@ -67,7 +68,7 @@ export function AddMaterialForm({ trainingId }: { trainingId: string }) {
       {open && (
         <form
           ref={ref}
-          action={(fd) => start(async () => { setErr(null); try { await addTrainingMaterial(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
+          action={(fd) => start(async () => { setErr(null); try { await stageUploads(fd, [{ field: "videoFile", category: "video" }, { field: "slidesFile", category: "slides" }]); await addTrainingMaterial(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
           className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3"
         >
           <input type="hidden" name="trainingId" value={trainingId} />
@@ -111,7 +112,7 @@ export function CompleteTrainingForm({ trainingId, defaultScore }: { trainingId:
       {open && (
         <form
           ref={ref}
-          action={(fd) => start(async () => { setErr(null); try { await submitCompletion(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
+          action={(fd) => start(async () => { setErr(null); try { await stageUploads(fd, [{ field: "proofFile", category: "proof" }]); await submitCompletion(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
           className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3"
         >
           <input type="hidden" name="trainingId" value={trainingId} />

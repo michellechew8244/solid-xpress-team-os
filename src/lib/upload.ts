@@ -15,13 +15,13 @@ import path from "node:path";
  * saveUploadedFile() for an upload call and keep the same return shape.
  */
 
-const MAX_BYTES: Record<string, number> = {
+export const MAX_BYTES: Record<string, number> = {
   video: 150 * 1024 * 1024, // 150MB
   slides: 25 * 1024 * 1024, // 25MB (PPT/PDF)
   proof: 10 * 1024 * 1024, // 10MB (completion certificate/screenshot)
 };
 
-const ALLOWED_MIME: Record<string, string[]> = {
+export const ALLOWED_MIME: Record<string, string[]> = {
   video: ["video/mp4", "video/webm", "video/ogg", "video/quicktime"],
   slides: [
     "application/pdf",
@@ -31,8 +31,16 @@ const ALLOWED_MIME: Record<string, string[]> = {
   proof: ["image/png", "image/jpeg", "image/webp", "application/pdf"],
 };
 
-function sanitize(filename: string): string {
+export function sanitize(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+}
+
+/** Validate a file's declared size/type against the category policy. */
+export function validateUpload(category: "video" | "slides" | "proof", sizeBytes: number, mimeType: string) {
+  if (sizeBytes <= 0) throw new Error("The selected file is empty.");
+  const maxBytes = MAX_BYTES[category];
+  if (sizeBytes > maxBytes) throw new Error(`File is too large (max ${Math.round(maxBytes / (1024 * 1024))}MB for ${category}).`);
+  if (mimeType && !ALLOWED_MIME[category].includes(mimeType)) throw new Error(`Unsupported file type "${mimeType}" for ${category}.`);
 }
 
 export interface SavedFile {

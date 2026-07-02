@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { canApproveTasks } from "@/lib/rbac";
-import { saveUploadedFile, deleteUploadedFile } from "@/lib/upload";
+import { saveUploadedFile, deleteUploadedFile, validateUpload, sanitize } from "@/lib/upload";
+import { createUploadTicket, deleteStoredFile, isCloudStorageConfigured, type UploadTicket } from "@/lib/storage";
 import { awardPoints } from "@/lib/points";
 import { notify } from "@/lib/notify";
 
@@ -17,6 +18,28 @@ async function actor() {
   const s = await getSession();
   if (!s) throw new Error("Unauthorized");
   return s;
+}
+
+/**
+ * Issue a signed URL so the browser can upload a file DIRECTLY to Supabase
+ * Storage (bypassing Vercel's ~4.5MB request cap). Validates the declared
+ * size/type server-side; the client then PUTs the file and passes the
+ * resulting public URL back through the normal form action.
+ */
+export async function requestUploadTicket(
+  category: "video" | "slides" | "proof",
+  filename: string,
+  sizeBytes: number,
+  mimeType: string,
+): Promise<UploadTicket | null> {
+  const me = await actor();
+  // Material uploads are manager-only; completion proof is any signed-in user.
+  if (category !== "proof" && !canManageTraining(me.role)) throw new Error("Forbidden");
+  if (!isCloudStorageConfigured()) return null; // caller falls back to form-post upload (local dev)
+  validateUpload(category, sizeBytes, mimeType);
+  const subdir = category === "proof" ? "training-proof" : "training";
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return createUploadTicket(`${subdir}/${unique}-${sanitize(filename || "file")}`);
 }
 
 /** Create a new training, optionally uploading a video and/or slides deck. */
@@ -67,9 +90,29 @@ async function attachIfPresent(
   trainingId: string,
   uploaderId: string,
 ): Promise<boolean> {
+  const category = field === "videoFile" ? "video" : "slides";
+
+  // Preferred path: the browser already uploaded straight to cloud storage via
+  // requestUploadTicket() and passes the resulting URL + metadata here.
+  const preUploadedUrl = String(formData.get(`${field}Url`) ?? "");
+  if (preUploadedUrl) {
+    await prisma.attachment.create({
+      data: {
+        filename: String(formData.get(`${field}Name`) ?? "file"),
+        url: preUploadedUrl,
+        mimeType: String(formData.get(`${field}Type`) ?? "") || "application/octet-stream",
+        sizeBytes: Number(formData.get(`${field}Size`) ?? 0),
+        kind: category.toUpperCase(),
+        uploadedById: uploaderId,
+        trainingId,
+      },
+    });
+    return true;
+  }
+
+  // Fallback: raw file in the form post (local dev without cloud storage).
   const file = formData.get(field);
   if (!(file instanceof File) || file.size === 0) return false;
-  const category = field === "videoFile" ? "video" : "slides";
   const saved = await saveUploadedFile(file, "training", category);
   await prisma.attachment.create({
     data: {
@@ -93,7 +136,9 @@ export async function deleteTrainingMaterial(attachmentId: string) {
   const att = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!att || !att.trainingId) return;
   await prisma.attachment.delete({ where: { id: attachmentId } });
-  await deleteUploadedFile(att.url);
+  // Route the delete to wherever the file actually lives.
+  if (att.url.startsWith("/uploads/")) await deleteUploadedFile(att.url);
+  else await deleteStoredFile(att.url);
   revalidatePath("/training");
 }
 
@@ -120,10 +165,16 @@ export async function submitCompletion(formData: FormData) {
   if (existing?.passed) return; // already passed — idempotent
 
   let proofUrl = existing?.proofUrl ?? null;
-  const proofFile = formData.get("proofFile");
-  if (proofFile instanceof File && proofFile.size > 0) {
-    const saved = await saveUploadedFile(proofFile, "training-proof", "proof");
-    proofUrl = saved.url;
+  // Preferred: proof already uploaded straight to cloud storage by the browser.
+  const preUploaded = String(formData.get("proofFileUrl") ?? "");
+  if (preUploaded) {
+    proofUrl = preUploaded;
+  } else {
+    const proofFile = formData.get("proofFile");
+    if (proofFile instanceof File && proofFile.size > 0) {
+      const saved = await saveUploadedFile(proofFile, "training-proof", "proof");
+      proofUrl = saved.url;
+    }
   }
 
   const passed = score >= training.passingMark;
