@@ -62,7 +62,12 @@ export default async function AttendancePage() {
           {myMonth.map((r) => (
             <div key={r.id} className="flex items-center justify-between px-5 py-2 text-sm">
               <span className="font-medium text-ink">{r.date}</span>
-              <span className="text-xs text-ink-muted">{klTime(r.clockIn)} → {klTime(r.clockOut)}{r.note ? ` · ${r.note}` : ""}</span>
+              <span className="text-xs text-ink-muted">
+                {klTime(r.clockIn)}{r.clockInPhotoUrl && <a href={r.clockInPhotoUrl} target="_blank" rel="noreferrer" className="ml-0.5 hover:opacity-70" title="Clock-in photo">📷</a>}
+                {" → "}
+                {klTime(r.clockOut)}{r.clockOutPhotoUrl && <a href={r.clockOutPhotoUrl} target="_blank" rel="noreferrer" className="ml-0.5 hover:opacity-70" title="Clock-out photo">📷</a>}
+                {r.note ? ` · ${r.note}` : ""}
+              </span>
               <Pill value={STATUS_PILL[r.status] ?? "WARN"} label={r.status} />
             </div>
           ))}
@@ -86,7 +91,11 @@ export default async function AttendancePage() {
                     <Avatar name={r.user.name} color={r.user.avatarColor} size={24} />
                     <span className="truncate font-medium text-ink">{r.user.name}</span>
                   </div>
-                  <span className="text-xs text-ink-muted">{r.date} · {klTime(r.clockIn)} → {klTime(r.clockOut)}</span>
+                  <span className="text-xs text-ink-muted">
+                    {r.date} · {klTime(r.clockIn)}{r.clockInPhotoUrl && <a href={r.clockInPhotoUrl} target="_blank" rel="noreferrer" className="ml-0.5 hover:opacity-70" title="Clock-in photo">📷</a>}
+                    {" → "}
+                    {klTime(r.clockOut)}{r.clockOutPhotoUrl && <a href={r.clockOutPhotoUrl} target="_blank" rel="noreferrer" className="ml-0.5 hover:opacity-70" title="Clock-out photo">📷</a>}
+                  </span>
                   <Pill value={STATUS_PILL[r.status] ?? "WARN"} label={r.status} />
                 </div>
               ))}

@@ -72,7 +72,10 @@ export default async function KpiPage() {
                   <Avatar name={r.user.name} color={r.user.avatarColor} size={28} />
                   <div>
                     <div className="text-sm font-semibold">{r.user.name}</div>
-                    <div className="text-xs text-ink-muted">{r.kpi.name} · actual {r.actualValue} · {r.achievementPct}% → {r.pointsAwarded} pts</div>
+                    <div className="text-xs text-ink-muted">
+                      {r.kpi.name} · actual {r.actualValue} · {r.achievementPct}% → {r.pointsAwarded} 💎
+                      {r.evidenceUrl && <a href={r.evidenceUrl} target="_blank" rel="noreferrer" className="ml-1 text-brand-600 hover:underline">📷 proof</a>}
+                    </div>
                   </div>
                 </div>
                 <KpiReviewButtons resultId={r.id} />

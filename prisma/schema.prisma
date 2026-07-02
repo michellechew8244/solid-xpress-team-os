@@ -438,6 +438,9 @@ model AttendanceRecord {
   date     String    // "2026-07-02" (Asia/Kuala_Lumpur calendar day)
   clockIn  DateTime?
   clockOut DateTime?
+  // Optional photo proof (e.g. selfie / worksite shot), stored in Supabase Storage.
+  clockInPhotoUrl  String?
+  clockOutPhotoUrl String?
   status   String    @default("PRESENT") // PRESENT | LATE | ABSENT | LEAVE
   note     String?
   period   String    // "2026-07"

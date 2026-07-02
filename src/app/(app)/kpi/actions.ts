@@ -38,7 +38,9 @@ export async function submitKpiActual(formData: FormData) {
     },
     update: {
       actualValue: actual, achievementPct: Math.round(achievementRate),
-      pointsAwarded: points, status: "SUBMITTED", evidenceUrl,
+      pointsAwarded: points, status: "SUBMITTED",
+      // Keep the previously uploaded proof if this resubmission has none.
+      evidenceUrl: evidenceUrl ?? existing?.evidenceUrl ?? null,
     },
   });
 

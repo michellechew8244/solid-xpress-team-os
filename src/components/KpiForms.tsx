@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { submitKpiActual, reviewKpiResult } from "@/app/(app)/kpi/actions";
+import { uploadProofPhoto } from "@/lib/upload-client";
 
 export function KpiEntryRow({
   kpi,
   result,
 }: {
   kpi: { id: string; name: string; targetValue: number; unit: string | null; maxPoints: number; pointMultiplier: number; evidenceRequired: boolean };
-  result?: { actualValue: number; achievementPct: number; pointsAwarded: number; status: string; credited: boolean } | null;
+  result?: { actualValue: number; achievementPct: number; pointsAwarded: number; status: string; credited: boolean; evidenceUrl?: string | null } | null;
 }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -16,17 +17,37 @@ export function KpiEntryRow({
 
   return (
     <form
-      action={(fd) => start(async () => { try { await submitKpiActual(fd); setMsg("Saved ✓"); } catch (e) { setMsg(e instanceof Error ? e.message : "Error"); } })}
+      action={(fd) => start(async () => {
+        try {
+          // Photo proof: upload straight to cloud storage, then submit its URL
+          // as the evidence link (photo wins over a hand-typed URL).
+          const photo = fd.get("evidencePhoto");
+          fd.delete("evidencePhoto");
+          if (photo instanceof File && photo.size > 0) {
+            const url = await uploadProofPhoto(photo);
+            if (url) fd.set("evidenceUrl", url);
+          }
+          await submitKpiActual(fd);
+          setMsg("Saved ✓");
+        } catch (e) { setMsg(e instanceof Error ? e.message : "Error"); }
+      })}
       className="flex flex-wrap items-end gap-3 border-b border-slate-100 py-3"
     >
       <input type="hidden" name="kpiId" value={kpi.id} />
       <div className="min-w-[180px] flex-1">
         <div className="text-sm font-semibold text-ink">{kpi.name}</div>
-        <div className="text-xs text-ink-muted">Target {kpi.targetValue.toLocaleString()} {kpi.unit ?? ""} · max {kpi.maxPoints} pts {kpi.evidenceRequired ? "· 📎 evidence" : ""}</div>
+        <div className="text-xs text-ink-muted">
+          Target {kpi.targetValue.toLocaleString()} {kpi.unit ?? ""} · max {kpi.maxPoints} 💎 {kpi.evidenceRequired ? "· 📎 evidence required" : ""}
+          {result?.evidenceUrl && <a href={result.evidenceUrl} target="_blank" rel="noreferrer" className="ml-1 text-brand-600 hover:underline">📷 view proof</a>}
+        </div>
       </div>
       <div>
         <label className="label">Actual</label>
         <input name="actualValue" type="number" step="any" defaultValue={result?.actualValue ?? ""} className="input w-28" disabled={locked} required />
+      </div>
+      <div>
+        <label className="label">📷 Proof photo</label>
+        <input name="evidencePhoto" type="file" accept="image/png,image/jpeg,image/webp" capture="environment" className="input w-48" disabled={locked} />
       </div>
       {kpi.evidenceRequired && (
         <div>

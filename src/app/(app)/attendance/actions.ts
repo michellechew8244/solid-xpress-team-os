@@ -7,8 +7,15 @@ import { isBoss } from "@/lib/rbac";
 import { klNow, LATE_AFTER_MINUTES, recomputeAttendanceCounters } from "@/lib/attendance";
 import { logAudit } from "@/lib/audit";
 
-/** Staff clocks in for today. Late after 09:15 (KL time). Idempotent per day. */
-export async function clockIn() {
+/** Only accept photo URLs that point at our own storage bucket (or none). */
+function sanitizePhotoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  return base && url.startsWith(`${base}/storage/v1/object/public/uploads/`) ? url : null;
+}
+
+/** Staff clocks in for today, optionally with a photo proof. Late after 09:15 (KL time). */
+export async function clockIn(photoUrl?: string | null) {
   const s = await getSession();
   if (!s) throw new Error("Unauthorized");
   const { dateStr, period, minutes } = klNow();
@@ -16,23 +23,27 @@ export async function clockIn() {
   if (existing?.clockIn) throw new Error("You have already clocked in today.");
 
   const status = minutes > LATE_AFTER_MINUTES ? "LATE" : "PRESENT";
+  const clockInPhotoUrl = sanitizePhotoUrl(photoUrl);
   await prisma.attendanceRecord.upsert({
     where: { userId_date: { userId: s.id, date: dateStr } },
-    create: { userId: s.id, date: dateStr, period, clockIn: new Date(), status },
-    update: { clockIn: new Date(), status },
+    create: { userId: s.id, date: dateStr, period, clockIn: new Date(), status, clockInPhotoUrl },
+    update: { clockIn: new Date(), status, clockInPhotoUrl },
   });
   await recomputeAttendanceCounters(s.id);
   revalidatePath("/attendance");
 }
 
-/** Staff clocks out for today. */
-export async function clockOut() {
+/** Staff clocks out for today, optionally with a photo proof. */
+export async function clockOut(photoUrl?: string | null) {
   const s = await getSession();
   if (!s) throw new Error("Unauthorized");
   const { dateStr } = klNow();
   const rec = await prisma.attendanceRecord.findUnique({ where: { userId_date: { userId: s.id, date: dateStr } } });
   if (!rec?.clockIn) throw new Error("Clock in first.");
-  await prisma.attendanceRecord.update({ where: { id: rec.id }, data: { clockOut: new Date() } });
+  await prisma.attendanceRecord.update({
+    where: { id: rec.id },
+    data: { clockOut: new Date(), clockOutPhotoUrl: sanitizePhotoUrl(photoUrl) },
+  });
   revalidatePath("/attendance");
 }
 

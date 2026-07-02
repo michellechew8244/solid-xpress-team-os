@@ -2,18 +2,41 @@
 
 import { useRef, useState, useTransition } from "react";
 import { clockIn, clockOut, markAttendance } from "@/app/(app)/attendance/actions";
+import { uploadProofPhoto } from "@/lib/upload-client";
 
 export function ClockButtons({ clockedIn, clockedOut }: { clockedIn: boolean; clockedOut: boolean }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const run = (fn: () => Promise<void>) => { setErr(null); start(async () => { try { await fn(); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } }); };
+  const photoRef = useRef<HTMLInputElement>(null);
 
+  // Uploads the selected photo (if any) straight to cloud storage, then clocks.
+  const run = (fn: (photoUrl?: string | null) => Promise<void>) => {
+    setErr(null);
+    start(async () => {
+      try {
+        const file = photoRef.current?.files?.[0];
+        const photoUrl = file && file.size > 0 ? await uploadProofPhoto(file) : null;
+        await fn(photoUrl);
+        if (photoRef.current) photoRef.current.value = "";
+      } catch (e) { setErr(e instanceof Error ? e.message : "Error"); }
+    });
+  };
+
+  const done = clockedIn && clockedOut;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {!clockedIn && <button className="btn-primary" disabled={pending} onClick={() => run(clockIn)}>🕘 Clock In</button>}
-      {clockedIn && !clockedOut && <button className="btn-primary" disabled={pending} onClick={() => run(clockOut)}>🕔 Clock Out</button>}
-      {clockedIn && clockedOut && <span className="text-sm font-semibold text-ok">✅ Done for today</span>}
-      {err && <span className="text-xs text-danger">{err}</span>}
+    <div className="flex flex-col items-start gap-2 sm:items-end">
+      {!done && (
+        <label className="text-xs text-ink-muted">
+          📷 Photo proof (optional)
+          <input ref={photoRef} type="file" accept="image/png,image/jpeg,image/webp" capture="environment" className="input mt-1" />
+        </label>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {!clockedIn && <button className="btn-primary" disabled={pending} onClick={() => run(clockIn)}>{pending ? "Uploading…" : "🕘 Clock In"}</button>}
+        {clockedIn && !clockedOut && <button className="btn-primary" disabled={pending} onClick={() => run(clockOut)}>{pending ? "Uploading…" : "🕔 Clock Out"}</button>}
+        {done && <span className="text-sm font-semibold text-ok">✅ Done for today</span>}
+        {err && <span className="text-xs text-danger">{err}</span>}
+      </div>
     </div>
   );
 }
