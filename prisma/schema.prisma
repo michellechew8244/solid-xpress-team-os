@@ -479,6 +479,9 @@ model Wish {
   description  String?
   emoji        String    @default("🌟")
   challenge    String    // the mission-impossible commitment
+  // Optional self-stake, escrowed from the wallet at creation. Granted →
+  // returned doubled; failed → lost; rejected → refunded in full.
+  stakeAmount  Int       @default(0)
   evidenceUrl  String?   // proof of challenge completion
   // PENDING | APPROVED (challenge running) | REJECTED | PROOF_SUBMITTED | GRANTED | FAILED
   status       String    @default("PENDING")

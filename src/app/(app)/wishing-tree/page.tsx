@@ -78,6 +78,19 @@ export default async function WishingTreePage() {
                 <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs">
                   <span className="font-semibold text-ink">🎯 Challenge:</span> <span className="text-ink-soft">{w.challenge}</span>
                 </div>
+                {w.stakeAmount > 0 && (
+                  <div className="mt-1 text-xs font-semibold">
+                    {w.status === "GRANTED" ? (
+                      <span className="text-ok">💎 Stake won: +{w.stakeAmount * 2} (doubled!)</span>
+                    ) : w.status === "FAILED" ? (
+                      <span className="text-danger">💎 Stake forfeited: -{w.stakeAmount}</span>
+                    ) : w.status === "REJECTED" ? (
+                      <span className="text-ink-muted">💎 Stake refunded: {w.stakeAmount}</span>
+                    ) : (
+                      <span className="text-amber-600">💎 {w.stakeAmount} staked — win it back doubled!</span>
+                    )}
+                  </div>
+                )}
                 <div className="mt-2 flex items-center gap-2 text-xs text-ink-muted">
                   <Avatar name={w.user.name} color={w.user.avatarColor} size={18} /> {w.user.name} · {dateTime(w.createdAt)}
                 </div>

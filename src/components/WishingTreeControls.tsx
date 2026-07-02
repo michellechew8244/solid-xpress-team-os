@@ -37,6 +37,14 @@ export function NewWishForm() {
             <textarea name="challenge" className="input min-h-20" placeholder="e.g. Close 15 shipments with zero customer complaints this month" required />
             <p className="mt-1 text-xs text-ink-muted">Set yourself a bold, measurable challenge. The Boss approves it, you complete it, then submit proof to claim your wish.</p>
           </div>
+          <div>
+            <label className="label">💎 Stake diamonds on yourself (optional)</label>
+            <input name="stakeAmount" type="number" min={0} defaultValue={0} className="input w-32" />
+            <p className="mt-1 text-xs text-ink-muted">
+              High stakes, high glory: win the challenge and your stake comes back <strong>doubled</strong>.
+              Fail and it&apos;s gone. If the Boss rejects the wish, it&apos;s refunded in full.
+            </p>
+          </div>
           {err && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{err}</div>}
           <div className="flex gap-2"><button className="btn-primary" disabled={pending}>{pending ? "Planting…" : "Plant on the tree"}</button><button className="btn-ghost" type="button" onClick={() => setOpen(false)}>Cancel</button></div>
         </form>
