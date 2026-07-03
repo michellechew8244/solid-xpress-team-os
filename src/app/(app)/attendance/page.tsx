@@ -7,6 +7,7 @@ import { STREAK_MILESTONES } from "@/lib/games";
 import { Avatar, Card, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { ClockButtons, MarkAttendanceForm } from "@/components/AttendanceControls";
 import { DailySpinGame } from "@/components/DailySpinGame";
+import { requireFeature } from "@/lib/features";
 
 const STATUS_PILL: Record<string, string> = { PRESENT: "OK", COMPLETED: "OK", LATE: "WARN", ABSENT: "DANGER", LEAVE: "COMPLETED", EARLY_LEAVE: "WARN", MISSING_CHECK_OUT: "DANGER" };
 
@@ -16,6 +17,7 @@ function klTime(d: Date | null) {
 }
 
 export default async function AttendancePage() {
+  await requireFeature("attendance");
   const user = await getCurrentUser();
   if (!user) return null;
   const { dateStr, period } = klNow();

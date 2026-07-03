@@ -12,8 +12,10 @@ import { NewUserForm } from "@/components/NewUserForm";
 import { UserFilters } from "@/components/UserFilters";
 import { UserRowActions } from "@/components/UserAdminActions";
 import type { Prisma } from "@prisma/client";
+import { requireFeature } from "@/lib/features";
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  await requireFeature("user-management");
   const me = await getCurrentUser();
   if (!me) return null;
   if (!canAccessUserAdmin(me.role)) redirect("/dashboard");

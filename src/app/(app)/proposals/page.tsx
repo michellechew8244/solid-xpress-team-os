@@ -6,8 +6,10 @@ import { PROPOSAL_CATEGORIES, PROPOSAL_STATUS_PILL } from "@/lib/proposals";
 import { Avatar, Card, EmptyState, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { NewProposalForm, ProposalReviewButtons } from "@/components/ProposalControls";
 import { suggestedAcceptReward } from "./actions";
+import { requireFeature } from "@/lib/features";
 
 export default async function ProposalsPage() {
+  await requireFeature("proposals");
   const user = await getCurrentUser();
   if (!user) return null;
   const canFinal = isBoss(user.role) || user.role === "HR_ADMIN";

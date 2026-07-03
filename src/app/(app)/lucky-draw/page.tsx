@@ -5,8 +5,10 @@ import { LUCKY_DRAW_SOURCES } from "@/lib/enums";
 import { rm, shortDate } from "@/lib/format";
 import { Avatar, Card, EmptyState, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { BuyEntryButton, DrawButton, ClaimButton, CreateCampaignForm, TemplatePicker, AddPrizeForm, GrantEntryForm } from "@/components/LuckyDrawControls";
+import { requireFeature } from "@/lib/features";
 
 export default async function LuckyDrawPage() {
+  await requireFeature("lucky-draw");
   const user = await getCurrentUser();
   if (!user) return null;
   const canManage = isBoss(user.role) || user.role === "HR_ADMIN";

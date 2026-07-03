@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { dateTime } from "@/lib/format";
 import { Avatar, Card, EmptyState, PageHeader } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 interface WallItem {
   key: string;
@@ -14,6 +15,7 @@ interface WallItem {
 }
 
 export default async function AchievementWallPage() {
+  await requireFeature("achievement-wall");
   const user = await getCurrentUser();
   if (!user) return null;
 

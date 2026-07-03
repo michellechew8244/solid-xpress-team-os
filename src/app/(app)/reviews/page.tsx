@@ -5,6 +5,7 @@ import { GRADE_LABEL } from "@/lib/enums";
 import type { Prisma } from "@prisma/client";
 import { Avatar, Card, EmptyState, PageHeader, Progress } from "@/components/ui";
 import { GenerateReviewsButton } from "@/components/GenerateReviewsButton";
+import { requireFeature } from "@/lib/features";
 
 const GRADE_COLOR: Record<string, string> = {
   A_PLUS: "bg-green-100 text-green-700", A: "bg-emerald-100 text-emerald-700",
@@ -13,6 +14,7 @@ const GRADE_COLOR: Record<string, string> = {
 };
 
 export default async function ReviewsPage() {
+  await requireFeature("reviews");
   const user = await getCurrentUser();
   if (!user) return null;
   const isManager = canApproveTasks(user.role) || user.role === "HR_ADMIN";

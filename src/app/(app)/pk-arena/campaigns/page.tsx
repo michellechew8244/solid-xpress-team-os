@@ -6,13 +6,14 @@ import { shortDate } from "@/lib/format";
 import { PK_METRICS } from "@/lib/pk";
 import { Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { NewPKCampaignForm, PKCampaignAdminButtons } from "@/components/PKControls";
+import { requireFeature } from "@/lib/features";
 
 const PILL: Record<string, string> = { ACTIVE: "OK", UPCOMING: "WARN", COMPLETED: "COMPLETED", CANCELLED: "DANGER" };
 
 export default async function PKCampaignsPage() {
+  await requireFeature("pk-campaigns");
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!(isBoss(user.role) || user.role === "HR_ADMIN")) redirect("/pk-arena");
 
   const campaigns = await prisma.pKCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
 

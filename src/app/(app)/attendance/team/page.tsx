@@ -4,12 +4,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { isBoss } from "@/lib/rbac";
 import { klNow } from "@/lib/attendance";
 import { Avatar, Card, PageHeader, SectionTitle, StatCard } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 export default async function TeamAttendancePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+  await requireFeature("attendance-team");
   const user = await getCurrentUser();
   if (!user) return null;
   const manager = isBoss(user.role) || user.role === "HR_ADMIN" || user.role === "DEPARTMENT_HEAD";
-  if (!manager) redirect("/attendance");
 
   const sp = await searchParams;
   const { dateStr, period: currentPeriodKey } = klNow();

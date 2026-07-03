@@ -6,9 +6,11 @@ import { canViewFinance } from "@/lib/rbac";
 import { rm, shortDate } from "@/lib/format";
 import { Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { MilestoneToggle } from "@/components/MilestoneToggle";
+import { requireFeature } from "@/lib/features";
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireFeature("job-board");
   const user = await getCurrentUser();
   if (!user) return null;
 

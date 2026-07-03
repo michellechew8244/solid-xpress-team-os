@@ -2,9 +2,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCeremony } from "@/services/ceremony";
 import { GRADE_LABEL } from "@/lib/enums";
 import { Avatar, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 /** Monthly Recognition Ceremony view (spec §10) — public to all staff. */
 export default async function CeremonyPage() {
+  await requireFeature("ceremony");
   const user = await getCurrentUser();
   if (!user) return null;
   const c = await getCeremony();

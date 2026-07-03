@@ -3,8 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { currentPeriod, growthLevelName } from "@/lib/enums";
 import { dateTime } from "@/lib/format";
 import { Card, PageHeader, SectionTitle, StatCard } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 export default async function WalletPage({ searchParams }: { searchParams: Promise<{ source?: string }> }) {
+  await requireFeature("wallet");
   const user = await getCurrentUser();
   if (!user) return null;
   const period = currentPeriod();

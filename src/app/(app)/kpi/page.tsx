@@ -5,8 +5,10 @@ import { currentPeriod } from "@/lib/enums";
 import { ragFromPct } from "@/lib/format";
 import { Avatar, Card, PageHeader, Pill, Progress, SectionTitle } from "@/components/ui";
 import { KpiEntryRow, KpiReviewButtons } from "@/components/KpiForms";
+import { requireFeature } from "@/lib/features";
 
 export default async function KpiPage() {
+  await requireFeature("kpi");
   const user = await getCurrentUser();
   if (!user) return null;
   const period = currentPeriod();

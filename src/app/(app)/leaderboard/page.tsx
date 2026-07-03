@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { currentPeriod } from "@/lib/enums";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 const MODES: Record<string, string> = {
   monthly: "Monthly Diamonds",
@@ -15,6 +16,7 @@ export default async function LeaderboardPage({
   searchParams: Promise<{ dept?: string; mode?: string }>;
 }) {
   const sp = await searchParams;
+  await requireFeature("leaderboard");
   const user = await getCurrentUser();
   if (!user) return null;
   const period = currentPeriod();

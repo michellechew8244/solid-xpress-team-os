@@ -6,6 +6,7 @@ import {
   NewTrainingForm, AddMaterialForm, DeleteMaterialButton, ToggleTrainingButton, CompleteTrainingForm,
   AddQuizQuestionForm, ToggleQuestionButton, TakeQuizForm,
 } from "@/components/TrainingForms";
+import { requireFeature } from "@/lib/features";
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -14,6 +15,7 @@ function fmtBytes(n: number): string {
 }
 
 export default async function TrainingPage() {
+  await requireFeature("training");
   const user = await getCurrentUser();
   if (!user) return null;
   const canManage = canApproveTasks(user.role) || user.role === "HR_ADMIN";

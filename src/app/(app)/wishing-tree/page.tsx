@@ -4,6 +4,7 @@ import { isBoss } from "@/lib/rbac";
 import { dateTime } from "@/lib/format";
 import { Avatar, Card, EmptyState, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { NewWishForm, BossWishDecision, BossWishOutcome, SubmitProofForm } from "@/components/WishingTreeControls";
+import { requireFeature } from "@/lib/features";
 
 const STATUS: Record<string, { pill: string; label: string }> = {
   PENDING: { pill: "WARN", label: "Awaiting Boss approval" },
@@ -15,6 +16,7 @@ const STATUS: Record<string, { pill: string; label: string }> = {
 };
 
 export default async function WishingTreePage() {
+  await requireFeature("wishing-tree");
   const user = await getCurrentUser();
   if (!user) return null;
   const boss = isBoss(user.role);

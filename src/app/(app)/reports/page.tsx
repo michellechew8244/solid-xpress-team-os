@@ -5,11 +5,12 @@ import { currentPeriod } from "@/lib/enums";
 import { Card, PageHeader, SectionTitle, StatCard } from "@/components/ui";
 import { getMonthlyReport } from "./actions";
 import { ReportExportButton } from "@/components/ReportExportButton";
+import { requireFeature } from "@/lib/features";
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+  await requireFeature("reports");
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!(isBoss(user.role) || user.role === "HR_ADMIN")) redirect("/dashboard");
 
   const sp = await searchParams;
   const period = /^\d{4}-\d{2}$/.test(sp.period ?? "") ? sp.period! : currentPeriod();

@@ -4,8 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { isBoss, canApproveTasks } from "@/lib/rbac";
 import { Card, PageHeader, SectionTitle } from "@/components/ui";
 import { NewKpiForm, KpiToggle } from "@/components/KpiSetupForms";
+import { requireFeature } from "@/lib/features";
 
 export default async function KpiSetupPage() {
+  await requireFeature("kpi-setup");
   const user = await getCurrentUser();
   if (!user) return null;
   if (!canApproveTasks(user.role)) redirect("/dashboard"); // boss / management / dept head

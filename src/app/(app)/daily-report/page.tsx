@@ -4,8 +4,10 @@ import { dateTime } from "@/lib/format";
 import { Card, PageHeader, SectionTitle } from "@/components/ui";
 import { DailyReportForm } from "@/components/DailyReportForm";
 import { AiPanel } from "@/components/AiPanel";
+import { requireFeature } from "@/lib/features";
 
 export default async function DailyReportPage() {
+  await requireFeature("daily-report");
   const user = await getCurrentUser();
   if (!user) return null;
 

@@ -4,8 +4,10 @@ import { isBoss } from "@/lib/rbac";
 import { dateTime } from "@/lib/format";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { NewAnnouncementForm, AnnouncementRowActions, MarkReadButton } from "@/components/AnnouncementControls";
+import { requireFeature } from "@/lib/features";
 
 export default async function AnnouncementsPage() {
+  await requireFeature("announcements");
   const user = await getCurrentUser();
   if (!user) return null;
   const canPost = isBoss(user.role) || user.role === "HR_ADMIN";

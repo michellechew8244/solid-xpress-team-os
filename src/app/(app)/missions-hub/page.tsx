@@ -5,8 +5,10 @@ import { klNow, computeStreak } from "@/lib/attendance";
 import { currentWindow, missionProgress, MISSION_CATEGORIES, MISSION_TYPES } from "@/lib/missions";
 import { Card, EmptyState, PageHeader, Progress, SectionTitle, StatCard } from "@/components/ui";
 import { ClaimMissionButton, NewMissionForm, MissionToggle, SeedMissionsButton } from "@/components/MissionHubControls";
+import { requireFeature } from "@/lib/features";
 
 export default async function GameCentrePage() {
+  await requireFeature("game-centre");
   const user = await getCurrentUser();
   if (!user) return null;
   const canManage = isBoss(user.role) || user.role === "HR_ADMIN";

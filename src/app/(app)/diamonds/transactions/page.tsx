@@ -5,8 +5,10 @@ import { dateTime } from "@/lib/format";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
 import { getDiamondTransactions, DIAMOND_SOURCE_TYPES, DIAMOND_TXN_TYPES, type TxnFilter } from "@/lib/diamonds";
 import { RowActions, ExportButton } from "@/components/diamonds/TransactionControls";
+import { requireFeature } from "@/lib/features";
 
 export default async function DiamondTransactionsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  await requireFeature("diamond-transactions");
   const user = await getCurrentUser();
   if (!user) return null;
   const owner = isBoss(user.role);

@@ -5,8 +5,10 @@ import { dateTime } from "@/lib/format";
 import { leaveBlockReason } from "@/services/leave";
 import { Avatar, Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { RedeemButton, RedemptionDecision } from "@/components/RewardButtons";
+import { requireFeature } from "@/lib/features";
 
 export default async function RewardsPage() {
+  await requireFeature("rewards");
   const user = await getCurrentUser();
   if (!user) return null;
   const isDeptHead = user.role === "DEPARTMENT_HEAD";

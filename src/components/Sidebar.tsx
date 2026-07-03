@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { visibleNav } from "./nav";
+import { visibleNav, type NavGroup } from "./nav";
 
-export function Sidebar({ role }: { role: string }) {
+export function Sidebar({ role, groups: providedGroups }: { role: string; groups?: NavGroup[] }) {
   const pathname = usePathname();
-  const groups = visibleNav(role);
+  // Groups are pre-computed server-side (role + per-user feature overrides);
+  // the role-only fallback keeps older call sites working.
+  const groups = providedGroups ?? visibleNav(role);
   const [open, setOpen] = useState(false);
 
   return (

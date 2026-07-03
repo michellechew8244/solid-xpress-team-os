@@ -7,9 +7,11 @@ import { dateTime, shortDate, isOverdue } from "@/lib/format";
 import { TASK_STATUS_LABELS } from "@/lib/enums";
 import { Avatar, Card, Pill, SectionTitle } from "@/components/ui";
 import { WorkflowButtons, ChecklistItem, CommentBox } from "@/components/TaskDetailActions";
+import { requireFeature } from "@/lib/features";
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireFeature("task-board");
   const user = await getCurrentUser();
   if (!user) return null;
 

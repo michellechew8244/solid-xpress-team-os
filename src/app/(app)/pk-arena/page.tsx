@@ -5,8 +5,10 @@ import { isBoss } from "@/lib/rbac";
 import { shortDate } from "@/lib/format";
 import { individualStandings, departmentStandings, mostImproved, PK_METRICS } from "@/lib/pk";
 import { Avatar, Card, EmptyState, PageHeader, Pill, SectionTitle } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 export default async function PKArenaPage() {
+  await requireFeature("pk-arena");
   const user = await getCurrentUser();
   if (!user) return null;
   const canManage = isBoss(user.role) || user.role === "HR_ADMIN";

@@ -4,11 +4,12 @@ import { isBoss } from "@/lib/rbac";
 import { getAttendanceSetting } from "@/lib/attendance";
 import { Card, PageHeader, SectionTitle } from "@/components/ui";
 import { AttendanceSettingForm } from "@/components/AttendanceSettingForm";
+import { requireFeature } from "@/lib/features";
 
 export default async function AttendanceSettingsPage() {
+  await requireFeature("attendance-settings");
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!(isBoss(user.role) || user.role === "HR_ADMIN")) redirect("/attendance");
 
   const setting = await getAttendanceSetting();
 

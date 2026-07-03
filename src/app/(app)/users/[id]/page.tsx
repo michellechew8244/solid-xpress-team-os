@@ -10,9 +10,11 @@ import {
 } from "@/lib/user-permissions";
 import { isBoss } from "@/lib/rbac";
 import { hasOnboardingBonus } from "@/lib/onboarding-bonus";
+import { FEATURES, getFeatureOverrides } from "@/lib/features";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
 import { UserRowActions } from "@/components/UserAdminActions";
 import { OnboardingBonusControls } from "@/components/OnboardingBonusControls";
+import { FeatureAccessPanel, type FeatureRow } from "@/components/FeatureAccessPanel";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -90,6 +92,25 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
             departments={departments}
             managers={managers}
             roles={assignableRoles}
+          />
+        </Card>
+      )}
+
+      {/* 🔐 Feature Access — Boss/Management set per-user rights/restrictions */}
+      {isBoss(me.role) && !isBoss(user.role) && (
+        <Card className="mb-6">
+          <SectionTitle>🔐 Feature Access (rights & restrictions)</SectionTitle>
+          <FeatureAccessPanel
+            userId={user.id}
+            rows={await (async (): Promise<FeatureRow[]> => {
+              const overrides = await getFeatureOverrides(user.id);
+              return Object.entries(FEATURES).map(([key, def]) => ({
+                key, label: def.label, icon: def.icon,
+                roleDefault: !def.roles || def.roles.includes(user.role),
+                override: overrides.get(key) ?? null,
+                denyOnly: Boolean(def.denyOnly),
+              }));
+            })()}
           />
         </Card>
       )}

@@ -15,8 +15,10 @@ import { LevelHistoryTimeline } from "@/components/growth/LevelHistoryTimeline";
 import { TeamGrowthTable } from "@/components/growth/TeamGrowthTable";
 import { LevelUpgradeApprovalPanel } from "@/components/growth/LevelUpgradeApprovalPanel";
 import type { LevelState } from "@/components/growth/LevelStatusPill";
+import { requireFeature } from "@/lib/features";
 
 export default async function BadgesPage() {
+  await requireFeature("badges");
   const user = await getCurrentUser();
   if (!user) return null;
   const canAward = canApproveTasks(user.role) || user.role === "HR_ADMIN";

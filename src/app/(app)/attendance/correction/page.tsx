@@ -5,10 +5,12 @@ import { dateTime } from "@/lib/format";
 import { klHM } from "@/lib/attendance";
 import { Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { CorrectionRequestForm, CorrectionReviewButtons } from "@/components/AttendanceCorrectionControls";
+import { requireFeature } from "@/lib/features";
 
 const PILL: Record<string, string> = { PENDING: "WARN", APPROVED: "OK", REJECTED: "DANGER" };
 
 export default async function AttendanceCorrectionPage() {
+  await requireFeature("attendance");
   const user = await getCurrentUser();
   if (!user) return null;
   const reviewer = isBoss(user.role) || user.role === "HR_ADMIN";

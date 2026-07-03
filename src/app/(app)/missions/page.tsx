@@ -8,6 +8,7 @@ import { TASK_STATUS_LABELS } from "@/lib/enums";
 import type { Prisma } from "@prisma/client";
 import { Avatar, Card, EmptyState, PageHeader, Pill } from "@/components/ui";
 import { NewTaskForm } from "@/components/NewTaskForm";
+import { requireFeature } from "@/lib/features";
 
 export default async function MissionsPage({
   searchParams,
@@ -16,6 +17,7 @@ export default async function MissionsPage({
 }) {
   await sweepOverdue();
   const sp = await searchParams;
+  await requireFeature("task-board");
   const user = await getCurrentUser();
   if (!user) return null;
 

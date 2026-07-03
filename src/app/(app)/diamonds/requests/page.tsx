@@ -6,15 +6,16 @@ import { dateTime } from "@/lib/format";
 import { Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { getDiamondAuthoritySetting } from "@/lib/diamonds";
 import { RequestForm, ApproveReject } from "@/components/diamonds/RequestControls";
+import { requireFeature } from "@/lib/features";
 
 const STATUS_PILL: Record<string, string> = { PENDING_OWNER_APPROVAL: "WARN", APPROVED: "OK", COMPLETED: "OK", REJECTED: "DANGER" };
 
 export default async function DiamondRequestsPage() {
+  await requireFeature("diamond-requests");
   const user = await getCurrentUser();
   if (!user) return null;
   const owner = isBoss(user.role);
   const canPropose = user.role === "HR_ADMIN" || user.role === "DEPARTMENT_HEAD";
-  if (!owner && !canPropose) redirect("/dashboard");
 
   const setting = await getDiamondAuthoritySetting();
   const deptScope = owner ? {} : user.role === "DEPARTMENT_HEAD" ? { departmentId: user.departmentId ?? "" } : {};

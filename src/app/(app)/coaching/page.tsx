@@ -5,8 +5,10 @@ import { shortDate } from "@/lib/format";
 import type { Prisma } from "@prisma/client";
 import { Avatar, Card, EmptyState, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import { NewCoachingForm, AcknowledgeButton } from "@/components/CoachingForms";
+import { requireFeature } from "@/lib/features";
 
 export default async function CoachingPage() {
+  await requireFeature("coaching");
   const user = await getCurrentUser();
   if (!user) return null;
   const isManager = canApproveTasks(user.role) || user.role === "HR_ADMIN";

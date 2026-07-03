@@ -130,6 +130,7 @@ model User {
   attendance       AttendanceRecord[]
   dailySpins       DailySpin[]
   wishes           Wish[]
+  featureAccess    UserFeatureAccess[]
 }
 
 model StaffProfile {
@@ -506,6 +507,21 @@ model Wish {
   updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([status])
+}
+
+// Per-user feature rights/restrictions set by Boss/Management. Overrides the
+// role defaults: ALLOW grants a feature beyond the user's role, DENY hides and
+// blocks it. Absence of a row = role default. Bosses are never restricted.
+model UserFeatureAccess {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  featureKey String
+  access     String   // ALLOW | DENY
+  updatedBy  String?
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([userId, featureKey])
 }
 
 // Singleton attendance policy (Boss/HR-editable). Times are "HH:MM" KL time.

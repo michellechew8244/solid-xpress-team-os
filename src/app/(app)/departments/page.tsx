@@ -5,8 +5,10 @@ import { canManageUsers } from "@/lib/rbac";
 import { rm } from "@/lib/format";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
 import { NewDepartmentForm, EditDepartmentForm } from "@/components/DepartmentForms";
+import { requireFeature } from "@/lib/features";
 
 export default async function DepartmentsPage() {
+  await requireFeature("departments");
   const user = await getCurrentUser();
   if (!user) return null;
   if (!canManageUsers(user.role)) redirect("/dashboard");

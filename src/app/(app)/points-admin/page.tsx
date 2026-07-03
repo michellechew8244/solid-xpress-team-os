@@ -9,12 +9,13 @@ import { PenaltyForm, RecognitionForm, AdjustForm } from "@/components/PointsAdm
 import { LeaveBlockToggles } from "@/components/LeaveBlockToggles";
 import { OnboardingBonusSettingForm } from "@/components/OnboardingBonusSettingForm";
 import { getOnboardingSetting } from "@/lib/onboarding-bonus";
+import { requireFeature } from "@/lib/features";
 
 export default async function PointsAdminPage() {
+  await requireFeature("diamond-admin");
   const user = await getCurrentUser();
   if (!user) return null;
   const isManager = canApproveTasks(user.role) || user.role === "HR_ADMIN";
-  if (!isManager) redirect("/dashboard");
 
   const period = currentPeriod();
   const deptScope = isBoss(user.role) || user.role === "HR_ADMIN" ? {} : { departmentId: user.departmentId ?? "" };

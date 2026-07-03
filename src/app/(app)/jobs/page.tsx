@@ -2,12 +2,14 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { shortDate } from "@/lib/format";
 import { Card, PageHeader, Pill } from "@/components/ui";
+import { requireFeature } from "@/lib/features";
 
 const MODE_ICON: Record<string, string> = {
   SEA: "🚢", AIR: "✈️", LAND: "🚚", FORWARDING: "📋", HAULAGE: "🚛", WAREHOUSE: "🏭", TRANSLOADING: "🔁", COURIER: "🏍️",
 };
 
 export default async function JobsPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+  await requireFeature("job-board");
   const sp = await searchParams;
   const jobs = await prisma.job.findMany({
     where: sp.mode ? { mode: sp.mode } : {},

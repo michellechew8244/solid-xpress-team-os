@@ -4,8 +4,10 @@ import { isBoss } from "@/lib/rbac";
 import { shortDate } from "@/lib/format";
 import { Avatar, Card, PageHeader, Progress, SectionTitle } from "@/components/ui";
 import { AddItemForm, ItemActiveToggle, StaffItemCheckbox } from "@/components/OnboardingChecklistControls";
+import { requireFeature } from "@/lib/features";
 
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ staff?: string }> }) {
+  await requireFeature("onboarding");
   const user = await getCurrentUser();
   if (!user) return null;
   const canManage = isBoss(user.role) || user.role === "HR_ADMIN";

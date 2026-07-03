@@ -5,8 +5,10 @@ import { canViewFinance } from "@/lib/rbac";
 import { rm } from "@/lib/format";
 import { Card, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { DonutChart } from "@/components/charts";
+import { requireFeature } from "@/lib/features";
 
 export default async function FinancePage() {
+  await requireFeature("finance");
   const user = await getCurrentUser();
   if (!user) return null;
   if (!canViewFinance(user.role)) redirect("/dashboard"); // section Q7
