@@ -35,6 +35,7 @@ export const NAV: NavGroup[] = [
       { href: "/kpi", label: "KPI Dashboard", icon: "📈" },
       { href: "/kpi-setup", label: "KPI Setup", icon: "⚙️", roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD"] },
       { href: "/daily-report", label: "Daily Report", icon: "📝" },
+      { href: "/work-reports", label: "Work Reports", icon: "📄" },
     ],
   },
   {

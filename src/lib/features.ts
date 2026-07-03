@@ -36,6 +36,7 @@ export const FEATURES: Record<string, FeatureDef> = {
   "job-board":         { label: "Job Board", icon: "📦", hrefs: ["/jobs"] },
   "kpi":               { label: "KPI Dashboard", icon: "📈", hrefs: ["/kpi"] },
   "daily-report":      { label: "Daily Report", icon: "📝", hrefs: ["/daily-report"] },
+  "work-reports":      { label: "Work Reports", icon: "📄", hrefs: ["/work-reports"] },
   "wallet":            { label: "Diamond Wallet", icon: "💎", hrefs: ["/wallet"] },
   "rewards":           { label: "Reward Store", icon: "🎁", hrefs: ["/rewards"] },
   "badges":            { label: "Badge Centre", icon: "🏅", hrefs: ["/badges"] },

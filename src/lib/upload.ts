@@ -19,6 +19,7 @@ export const MAX_BYTES: Record<string, number> = {
   video: 150 * 1024 * 1024, // 150MB
   slides: 25 * 1024 * 1024, // 25MB (PPT/PDF)
   proof: 10 * 1024 * 1024, // 10MB (completion certificate/screenshot)
+  document: 25 * 1024 * 1024, // 25MB (job/status report: Excel/Word/PDF/CSV)
 };
 
 export const ALLOWED_MIME: Record<string, string[]> = {
@@ -29,6 +30,14 @@ export const ALLOWED_MIME: Record<string, string[]> = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ],
   proof: ["image/png", "image/jpeg", "image/webp", "application/pdf"],
+  document: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+  ],
 };
 
 export function sanitize(filename: string): string {
@@ -36,7 +45,7 @@ export function sanitize(filename: string): string {
 }
 
 /** Validate a file's declared size/type against the category policy. */
-export function validateUpload(category: "video" | "slides" | "proof", sizeBytes: number, mimeType: string) {
+export function validateUpload(category: "video" | "slides" | "proof" | "document", sizeBytes: number, mimeType: string) {
   if (sizeBytes <= 0) throw new Error("The selected file is empty.");
   const maxBytes = MAX_BYTES[category];
   if (sizeBytes > maxBytes) throw new Error(`File is too large (max ${Math.round(maxBytes / (1024 * 1024))}MB for ${category}).`);
@@ -52,9 +61,9 @@ export interface SavedFile {
 
 /**
  * Validate and persist an uploaded File to public/uploads/<subdir>/.
- * `category` selects the size/type policy: "video" | "slides" | "proof".
+ * `category` selects the size/type policy: "video" | "slides" | "proof" | "document".
  */
-export async function saveUploadedFile(file: File, subdir: string, category: "video" | "slides" | "proof"): Promise<SavedFile> {
+export async function saveUploadedFile(file: File, subdir: string, category: "video" | "slides" | "proof" | "document"): Promise<SavedFile> {
   if (file.size === 0) throw new Error("The selected file is empty.");
   const maxBytes = MAX_BYTES[category];
   if (file.size > maxBytes) {

@@ -27,17 +27,18 @@ async function actor() {
  * resulting public URL back through the normal form action.
  */
 export async function requestUploadTicket(
-  category: "video" | "slides" | "proof",
+  category: "video" | "slides" | "proof" | "document",
   filename: string,
   sizeBytes: number,
   mimeType: string,
 ): Promise<UploadTicket | null> {
   const me = await actor();
-  // Material uploads are manager-only; completion proof is any signed-in user.
-  if (category !== "proof" && !canManageTraining(me.role)) throw new Error("Forbidden");
+  // Training material (video/slides) is manager-only; completion proof and
+  // work-report documents can be uploaded by any signed-in user.
+  if (category !== "proof" && category !== "document" && !canManageTraining(me.role)) throw new Error("Forbidden");
   if (!isCloudStorageConfigured()) return null; // caller falls back to form-post upload (local dev)
   validateUpload(category, sizeBytes, mimeType);
-  const subdir = category === "proof" ? "training-proof" : "training";
+  const subdir = category === "proof" ? "training-proof" : category === "document" ? "work-reports" : "training";
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return createUploadTicket(`${subdir}/${unique}-${sanitize(filename || "file")}`);
 }

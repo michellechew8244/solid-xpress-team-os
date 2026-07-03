@@ -131,6 +131,7 @@ model User {
   dailySpins       DailySpin[]
   wishes           Wish[]
   featureAccess    UserFeatureAccess[]
+  workReports      WorkReport[]
 }
 
 model StaffProfile {
@@ -507,6 +508,29 @@ model Wish {
   updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([status])
+}
+
+// Staff-uploaded job/status report documents (Excel/Word/PDF/CSV) with a
+// self-tracked progress percentage. Files live in Supabase Storage (uploaded
+// directly from the browser); the record + dashboards update automatically.
+model WorkReport {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  reportType    String   @default("STATUS_REPORT") // JOB_REPORT | STATUS_REPORT | PROGRESS_UPDATE | OTHER
+  jobId         String?  // optional link to a shipment job
+  fileUrl       String
+  fileName      String
+  fileType      String   @default("application/octet-stream")
+  fileSizeBytes Int      @default(0)
+  progressPct   Int      @default(0) // 0..100, staff-updated
+  progressNote  String?
+  status        String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([userId])
 }
 
 // Per-user feature rights/restrictions set by Boss/Management. Overrides the

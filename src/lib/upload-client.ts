@@ -30,7 +30,7 @@ export async function uploadProofPhoto(file: File): Promise<string | null> {
 
 export async function stageUploads(
   fd: FormData,
-  fields: { field: string; category: "video" | "slides" | "proof" }[],
+  fields: { field: string; category: "video" | "slides" | "proof" | "document" }[],
 ): Promise<void> {
   for (const { field, category } of fields) {
     const file = fd.get(field);
