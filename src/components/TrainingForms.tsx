@@ -39,13 +39,13 @@ export function NewTrainingForm() {
             name="videoFile"
             accept="video/mp4,video/webm,video/ogg,video/quicktime"
             label="🎬 Video file"
-            hint="mp4/webm · max 150MB"
+            hint="mp4/webm/mov · max 500MB"
           />
           <FileDropZone
             name="slidesFile"
             accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf"
             label="📑 Slides (PPT/PDF)"
-            hint="max 25MB"
+            hint="max 100MB"
           />
           <div><label className="label">Or external video link</label><input name="videoLink" className="input" placeholder="https://youtube.com/…" /></div>
           <div><label className="label">Or external SOP link</label><input name="sopDocument" className="input" placeholder="https://…" /></div>
@@ -77,8 +77,8 @@ export function AddMaterialForm({ trainingId }: { trainingId: string }) {
           className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3"
         >
           <input type="hidden" name="trainingId" value={trainingId} />
-          <FileDropZone name="videoFile" accept="video/mp4,video/webm,video/ogg,video/quicktime" label="🎬 Video file" hint="mp4/webm · max 150MB" />
-          <FileDropZone name="slidesFile" accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf" label="📑 Slides (PPT/PDF)" hint="max 25MB" />
+          <FileDropZone name="videoFile" accept="video/mp4,video/webm,video/ogg,video/quicktime" label="🎬 Video file" hint="mp4/webm/mov · max 500MB" />
+          <FileDropZone name="slidesFile" accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf" label="📑 Slides (PPT/PDF)" hint="max 100MB" />
           {err && <div className="rounded-lg bg-rose-50 px-2 py-1 text-xs text-rose-700">{err}</div>}
           <div className="flex gap-2"><button className="btn-primary px-3 py-1 text-xs" disabled={pending}>{pending ? "Uploading…" : "Upload"}</button><button type="button" className="btn-ghost px-3 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button></div>
         </form>

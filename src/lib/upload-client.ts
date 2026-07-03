@@ -1,6 +1,7 @@
 "use client";
 
 import { requestUploadTicket } from "@/app/(app)/training/actions";
+import { validateUpload } from "@/lib/upload-limits";
 
 /**
  * Client-side upload staging. For each named file input in the FormData, ask
@@ -17,6 +18,7 @@ import { requestUploadTicket } from "@/app/(app)/training/actions";
  * treat the photo as optional in that case.
  */
 export async function uploadProofPhoto(file: File): Promise<string | null> {
+  validateUpload("proof", file.size, file.type); // fails fast, client-side, with a clear message
   const ticket = await requestUploadTicket("proof", file.name, file.size, file.type);
   if (!ticket) return null;
   const res = await fetch(ticket.uploadUrl, {
@@ -24,7 +26,7 @@ export async function uploadProofPhoto(file: File): Promise<string | null> {
     headers: { "Content-Type": file.type || "application/octet-stream" },
     body: file,
   });
-  if (!res.ok) throw new Error(`Photo upload failed (${res.status}). Please try again.`);
+  if (!res.ok) throw new Error(`Photo upload failed (${res.status}). ${res.status === 413 ? "The file exceeds the storage size limit." : "Please try again."}`);
   return ticket.publicUrl;
 }
 
@@ -36,6 +38,8 @@ export async function stageUploads(
     const file = fd.get(field);
     if (!(file instanceof File) || file.size === 0) continue;
 
+    validateUpload(category, file.size, file.type); // fails fast, client-side, clear message
+
     const ticket = await requestUploadTicket(category, file.name, file.size, file.type);
     if (!ticket) continue; // local-dev fallback: leave the File in the form
 
@@ -44,7 +48,7 @@ export async function stageUploads(
       headers: { "Content-Type": file.type || "application/octet-stream" },
       body: file,
     });
-    if (!res.ok) throw new Error(`Upload failed (${res.status}). Please try again.`);
+    if (!res.ok) throw new Error(`Upload of "${file.name}" failed (${res.status}). ${res.status === 413 ? "It exceeds the storage size limit — ask an admin to raise the Storage upload limit." : "Please try again."}`);
 
     fd.delete(field);
     fd.set(`${field}Url`, ticket.publicUrl);

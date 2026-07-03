@@ -1,5 +1,6 @@
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
+import { MAX_BYTES, ALLOWED_MIME, validateUpload, type UploadCategory } from "./upload-limits";
 
 // Note: no `server-only` guard here — this module is only ever imported from
 // "use server" action files (which are inherently server-only), and keeping
@@ -10,46 +11,14 @@ import path from "node:path";
  * completion proof. Files are saved under public/uploads/<subdir>/ and served
  * by Next.js as static assets at /uploads/<subdir>/<file>.
  *
- * This is intentionally simple (no S3/blob store) since the app runs as a
- * single Next.js server. To move to cloud storage later, swap the body of
- * saveUploadedFile() for an upload call and keep the same return shape.
+ * Size/type policy lives in ./upload-limits (client-safe, shared with the
+ * browser so both sides enforce identical rules).
  */
 
-export const MAX_BYTES: Record<string, number> = {
-  video: 150 * 1024 * 1024, // 150MB
-  slides: 25 * 1024 * 1024, // 25MB (PPT/PDF)
-  proof: 10 * 1024 * 1024, // 10MB (completion certificate/screenshot)
-  document: 25 * 1024 * 1024, // 25MB (job/status report: Excel/Word/PDF/CSV)
-};
-
-export const ALLOWED_MIME: Record<string, string[]> = {
-  video: ["video/mp4", "video/webm", "video/ogg", "video/quicktime"],
-  slides: [
-    "application/pdf",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ],
-  proof: ["image/png", "image/jpeg", "image/webp", "application/pdf"],
-  document: [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/csv",
-  ],
-};
+export { MAX_BYTES, ALLOWED_MIME, validateUpload };
 
 export function sanitize(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
-}
-
-/** Validate a file's declared size/type against the category policy. */
-export function validateUpload(category: "video" | "slides" | "proof" | "document", sizeBytes: number, mimeType: string) {
-  if (sizeBytes <= 0) throw new Error("The selected file is empty.");
-  const maxBytes = MAX_BYTES[category];
-  if (sizeBytes > maxBytes) throw new Error(`File is too large (max ${Math.round(maxBytes / (1024 * 1024))}MB for ${category}).`);
-  if (mimeType && !ALLOWED_MIME[category].includes(mimeType)) throw new Error(`Unsupported file type "${mimeType}" for ${category}.`);
 }
 
 export interface SavedFile {
@@ -63,16 +32,8 @@ export interface SavedFile {
  * Validate and persist an uploaded File to public/uploads/<subdir>/.
  * `category` selects the size/type policy: "video" | "slides" | "proof" | "document".
  */
-export async function saveUploadedFile(file: File, subdir: string, category: "video" | "slides" | "proof" | "document"): Promise<SavedFile> {
-  if (file.size === 0) throw new Error("The selected file is empty.");
-  const maxBytes = MAX_BYTES[category];
-  if (file.size > maxBytes) {
-    throw new Error(`File is too large (max ${Math.round(maxBytes / (1024 * 1024))}MB for ${category}).`);
-  }
-  const allowed = ALLOWED_MIME[category];
-  if (file.type && !allowed.includes(file.type)) {
-    throw new Error(`Unsupported file type "${file.type}" for ${category}.`);
-  }
+export async function saveUploadedFile(file: File, subdir: string, category: UploadCategory): Promise<SavedFile> {
+  validateUpload(category, file.size, file.type);
 
   const dir = path.join(process.cwd(), "public", "uploads", subdir);
   await mkdir(dir, { recursive: true });
