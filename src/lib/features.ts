@@ -47,6 +47,7 @@ export const FEATURES: Record<string, FeatureDef> = {
   "pk-arena":          { label: "PK Arena", icon: "⚔️", hrefs: ["/pk-arena"] },
   "proposals":         { label: "Idea Bank", icon: "💡", hrefs: ["/proposals"] },
   "announcements":     { label: "Announcements", icon: "📢", hrefs: ["/announcements"] },
+  "forum":             { label: "Staff Forum", icon: "💬", hrefs: ["/forum"] },
   "achievement-wall":  { label: "Achievement Wall", icon: "🏛️", hrefs: ["/achievement-wall"] },
   "leaderboard":       { label: "Leaderboard", icon: "🏆", hrefs: ["/leaderboard"] },
   "ceremony":          { label: "Recognition", icon: "🎤", hrefs: ["/ceremony"] },

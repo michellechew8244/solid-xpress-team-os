@@ -19,6 +19,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "📊" },
       { href: "/announcements", label: "Announcements", icon: "📢" },
+      { href: "/forum", label: "Staff Forum", icon: "💬" },
       { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
       { href: "/achievement-wall", label: "Achievement Wall", icon: "🏛️" },
       { href: "/ceremony", label: "Recognition", icon: "🎤" },

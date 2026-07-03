@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { dateTime } from "@/lib/format";
+import { dateTime, shortDate } from "@/lib/format";
+import { isBoss } from "@/lib/rbac";
 import {
   canAccessUserAdmin, canCreateUsers, canDeactivateUsers, canResetPassword,
   canAssignRole, editScope, userListScope,
@@ -11,6 +12,7 @@ import { Avatar, Card, PageHeader, StatCard } from "@/components/ui";
 import { NewUserForm } from "@/components/NewUserForm";
 import { UserFilters } from "@/components/UserFilters";
 import { UserRowActions } from "@/components/UserAdminActions";
+import { SignupApprovalPanel } from "@/components/SignupApprovalPanel";
 import type { Prisma } from "@prisma/client";
 import { requireFeature } from "@/lib/features";
 
@@ -37,8 +39,17 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     ];
   }
 
+  // Self-signups awaiting management approval (Boss/Management only).
+  const pendingSignups = isBoss(me.role)
+    ? await prisma.user.findMany({
+        where: { signupStatus: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        include: { department: { select: { name: true } } },
+      })
+    : [];
+
   const [users, departments, allInScope] = await Promise.all([
-    prisma.user.findMany({ where, include: { department: true, manager: true }, orderBy: [{ department: { name: "asc" } }, { name: "asc" }] }),
+    prisma.user.findMany({ where: { ...where, signupStatus: { not: "PENDING" } }, include: { department: true, manager: true }, orderBy: [{ department: { name: "asc" } }, { name: "asc" }] }),
     prisma.department.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.user.findMany({ where: scopeWhere, select: { role: true, accessStatus: true, employmentStatus: true, joinDate: true } }),
   ]);
@@ -63,6 +74,14 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         title="User Management"
         subtitle="Manage staff accounts, roles, departments, reporting lines and access status."
         action={canCreateUsers(me.role) ? <NewUserForm departments={departments} managers={managers} roles={assignableRoles} /> : undefined}
+      />
+
+      <SignupApprovalPanel
+        pending={pendingSignups.map((u) => ({
+          id: u.id, name: u.name, email: u.email, avatarUrl: u.avatarUrl, avatarColor: u.avatarColor,
+          departmentName: u.department?.name ?? null, nationalId: u.nationalId,
+          dobLabel: u.dateOfBirth ? shortDate(u.dateOfBirth) : null, requestedLabel: dateTime(u.createdAt),
+        }))}
       />
 
       {/* Dashboard cards */}

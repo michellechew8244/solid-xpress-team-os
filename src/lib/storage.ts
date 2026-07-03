@@ -45,6 +45,23 @@ export async function createUploadTicket(path: string): Promise<UploadTicket> {
   };
 }
 
+/**
+ * Server-side upload of a small buffer (e.g. a signup profile photo that
+ * arrives via form post before the user has an account). Large files should
+ * always use the signed-ticket browser path instead.
+ */
+export async function uploadBufferToStorage(path: string, buffer: Buffer, contentType: string): Promise<string> {
+  const cfg = config();
+  if (!cfg) throw new Error("Cloud storage is not configured.");
+  const res = await fetch(`${cfg.url}/storage/v1/object/${BUCKET}/${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfg.key}`, "Content-Type": contentType, "x-upsert": "false" },
+    body: new Uint8Array(buffer),
+  });
+  if (!res.ok) throw new Error(`Photo upload failed (${res.status}).`);
+  return `${cfg.url}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+
 /** Best-effort delete of a stored object, given its public URL. */
 export async function deleteStoredFile(publicUrl: string) {
   const cfg = config();

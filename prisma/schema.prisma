@@ -67,6 +67,11 @@ model User {
   // Diamond Authority module: when true, a non-boss user is allowed to generate
   // diamonds directly (granted only by the Owner/Boss). Default false.
   hasOwnerDiamondAuthority Boolean @default(false)
+  // Self-signup fields. signupStatus: APPROVED (default for admin-created
+  // accounts) | PENDING (awaiting management approval) | REJECTED.
+  dateOfBirth   DateTime?
+  nationalId    String?
+  signupStatus  String   @default("APPROVED")
 
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id])
@@ -132,6 +137,7 @@ model User {
   wishes           Wish[]
   featureAccess    UserFeatureAccess[]
   workReports      WorkReport[]
+  forumMessages    ForumMessage[]
 }
 
 model StaffProfile {
@@ -508,6 +514,17 @@ model Wish {
   updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([status])
+}
+
+// Company-wide staff forum — one shared chat stream for all teams.
+model ForumMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // Staff-uploaded job/status report documents (Excel/Word/PDF/CSV) with a

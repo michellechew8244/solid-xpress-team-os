@@ -62,6 +62,10 @@ export default function LoginPage() {
             </button>
           </form>
 
+          <p className="mt-3 text-center text-sm text-ink-muted">
+            New staff? <a href="/signup" className="font-semibold text-brand-600 hover:underline">Sign up here</a> — management approves your account.
+          </p>
+
           <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Demo accounts</div>
             <div className="mt-2 space-y-1 text-xs text-ink-soft">

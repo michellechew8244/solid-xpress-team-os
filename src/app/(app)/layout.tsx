@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getFeatureOverrides, navForUser } from "@/lib/features";
+import { klNow } from "@/lib/attendance";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
+import { BirthdayPopup } from "@/components/BirthdayPopup";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -11,6 +14,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Sidebar honours per-user feature rights/restrictions on top of the role.
   const overrides = await getFeatureOverrides(user.id);
   const groups = navForUser(user.role, overrides);
+
+  // 🎂 Today's birthdays (KL calendar): match on month-day of dateOfBirth.
+  const todayKey = klNow().dateStr.slice(5); // "MM-DD"
+  const bdayPeople = (
+    await prisma.user.findMany({ where: { isActive: true, dateOfBirth: { not: null } }, select: { id: true, name: true, dateOfBirth: true } })
+  ).filter((u) => u.dateOfBirth && u.dateOfBirth.toISOString().slice(5, 10) === todayKey);
+  const birthday = {
+    todayKey,
+    names: bdayPeople.map((u) => u.name),
+    isMine: bdayPeople.some((u) => u.id === user.id),
+  };
 
   return (
     <div className="min-h-screen">
@@ -29,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
         <main className="mx-auto max-w-7xl overflow-x-hidden px-4 py-6 md:px-6">{children}</main>
       </div>
+      <BirthdayPopup info={birthday} />
     </div>
   );
 }
