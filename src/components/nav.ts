@@ -20,6 +20,7 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard", label: "Dashboard", icon: "📊" },
       { href: "/announcements", label: "Announcements", icon: "📢" },
       { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
+      { href: "/achievement-wall", label: "Achievement Wall", icon: "🏛️" },
       { href: "/ceremony", label: "Recognition", icon: "🎤" },
       { href: "/reports", label: "Monthly Report", icon: "📑", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
     ],
@@ -27,7 +28,8 @@ export const NAV: NavGroup[] = [
   {
     group: "Work",
     items: [
-      { href: "/attendance", label: "Attendance", icon: "⏰" },
+      { href: "/attendance", label: "Attendance Centre", icon: "⏰" },
+      { href: "/proposals", label: "Idea Bank", icon: "💡" },
       { href: "/missions", label: "Mission Board", icon: "🎯" },
       { href: "/jobs", label: "Job Board", icon: "📦" },
       { href: "/kpi", label: "KPI Dashboard", icon: "📈" },
@@ -39,6 +41,8 @@ export const NAV: NavGroup[] = [
     group: "Rewards & Growth",
     items: [
       { href: "/wallet", label: "Diamond Wallet", icon: "💎" },
+      { href: "/missions-hub", label: "Game Centre", icon: "🎮" },
+      { href: "/pk-arena", label: "PK Arena", icon: "⚔️" },
       { href: "/rewards", label: "Reward Store", icon: "🎁" },
       { href: "/badges", label: "Badge Centre", icon: "🏅" },
       { href: "/lucky-draw", label: "Lucky Draw", icon: "🎰" },

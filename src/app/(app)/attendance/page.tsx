@@ -1,13 +1,14 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBoss } from "@/lib/rbac";
-import { klNow, computeStreak } from "@/lib/attendance";
+import { klNow, computeStreak, getAttendanceSetting, WORK_TYPES, finalizeOpenDays } from "@/lib/attendance";
 import { STREAK_MILESTONES } from "@/lib/games";
 import { Avatar, Card, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { ClockButtons, MarkAttendanceForm } from "@/components/AttendanceControls";
 import { DailySpinGame } from "@/components/DailySpinGame";
 
-const STATUS_PILL: Record<string, string> = { PRESENT: "OK", LATE: "WARN", ABSENT: "DANGER", LEAVE: "COMPLETED" };
+const STATUS_PILL: Record<string, string> = { PRESENT: "OK", COMPLETED: "OK", LATE: "WARN", ABSENT: "DANGER", LEAVE: "COMPLETED", EARLY_LEAVE: "WARN", MISSING_CHECK_OUT: "DANGER" };
 
 function klTime(d: Date | null) {
   if (!d) return "—";
@@ -21,7 +22,10 @@ export default async function AttendancePage() {
   const isManager = isBoss(user.role) || user.role === "HR_ADMIN" || user.role === "DEPARTMENT_HEAD";
   const deptScope = isBoss(user.role) || user.role === "HR_ADMIN" ? {} : { departmentId: user.departmentId ?? "" };
 
-  const [today, myMonth, teamMonth, staff, todaySpin, streak] = await Promise.all([
+  // Settle any past open days (missing check-outs, perfect-month awards) lazily.
+  await finalizeOpenDays(user.id);
+
+  const [today, myMonth, teamMonth, staff, todaySpin, streak, setting] = await Promise.all([
     prisma.attendanceRecord.findUnique({ where: { userId_date: { userId: user.id, date: dateStr } } }),
     prisma.attendanceRecord.findMany({ where: { userId: user.id, period }, orderBy: { date: "desc" } }),
     isManager
@@ -32,25 +36,53 @@ export default async function AttendancePage() {
       : Promise.resolve([]),
     prisma.dailySpin.findUnique({ where: { userId_date: { userId: user.id, date: dateStr } } }),
     computeStreak(user.id, dateStr),
+    getAttendanceSetting(),
   ]);
 
   const count = (s: string) => myMonth.filter((r) => r.status === s).length;
+  const diamondsToday = (today?.diamondAwarded ?? 0) - (today?.diamondDeducted ?? 0);
+  const hm = (m: number) => `${Math.floor(m / 60)}h ${m % 60}m`;
   const nextMilestone = Object.keys(STREAK_MILESTONES).map(Number).sort((a, b) => a - b).find((d) => d > streak);
 
   return (
     <>
-      <PageHeader title="Attendance" subtitle={`Clock in/out and monthly record · ${period}`} />
+      <PageHeader
+        title="Attendance Centre"
+        subtitle={`Check-in/out on secure server time (Asia/Kuala_Lumpur) · ${period}`}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Link href="/attendance/correction" className="btn-ghost">🕰️ Request Correction</Link>
+            {isManager && <Link href="/attendance/team" className="btn-ghost">👥 Team</Link>}
+            {(isBoss(user.role) || user.role === "HR_ADMIN") && <Link href="/attendance/settings" className="btn-ghost">⚙️ Settings</Link>}
+          </div>
+        }
+      />
 
       <Card className="mb-6">
         <SectionTitle>Today · {dateStr}</SectionTitle>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-ink-muted">
-            Clock in: <strong className="text-ink">{klTime(today?.clockIn ?? null)}</strong> · Clock out: <strong className="text-ink">{klTime(today?.clockOut ?? null)}</strong>
-            {today && <span className="ml-2"><Pill value={STATUS_PILL[today.status] ?? "WARN"} label={today.status} /></span>}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1 text-sm text-ink-muted">
+            <div>
+              Check-in: <strong className="text-ink">{klTime(today?.clockIn ?? null)}</strong> · Check-out: <strong className="text-ink">{klTime(today?.clockOut ?? null)}</strong>
+              {today && <span className="ml-2"><Pill value={STATUS_PILL[today.status] ?? "WARN"} label={today.correctionStatus ?? today.status} /></span>}
+            </div>
+            {today && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                <span>Work type: <strong className="text-ink">{WORK_TYPES[today.workType] ?? today.workType}</strong></span>
+                {today.lateMinutes > 0 && <span className="text-danger">Late {today.lateMinutes} min</span>}
+                {today.earlyLeaveMinutes > 0 && <span className="text-warn">Early leave {today.earlyLeaveMinutes} min</span>}
+                {today.overtimeMinutes > 0 && <span className="text-ok">OT {hm(today.overtimeMinutes)}</span>}
+                {today.totalWorkMinutes > 0 && <span>Worked {hm(today.totalWorkMinutes)}</span>}
+                <span className={diamondsToday >= 0 ? "text-ok" : "text-danger"}>💎 {diamondsToday >= 0 ? "+" : ""}{diamondsToday} today</span>
+              </div>
+            )}
           </div>
-          <ClockButtons clockedIn={Boolean(today?.clockIn)} clockedOut={Boolean(today?.clockOut)} />
+          <ClockButtons clockedIn={Boolean(today?.clockIn)} clockedOut={Boolean(today?.clockOut)} workTypes={WORK_TYPES} photoRequired={setting.photoRequired} />
         </div>
-        <p className="mt-2 text-xs text-ink-muted">Clock-in after 09:15 is recorded as Late.</p>
+        <p className="mt-2 text-xs text-ink-muted">
+          Standard hours {setting.standardStartTime}–{setting.standardEndTime} · check-in after {setting.standardStartTime} +{setting.gracePeriodMinutes} min grace is Late
+          {setting.diamondRewardEnabled ? ` · on-time +${setting.onTimeDiamondReward} 💎 · complete day +${setting.completeDayDiamondReward} 💎` : ""}.
+        </p>
       </Card>
 
       {/* 🎮 Check-in games */}

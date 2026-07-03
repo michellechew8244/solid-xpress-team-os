@@ -438,13 +438,26 @@ model AttendanceRecord {
   userId   String
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   date     String    // "2026-07-02" (Asia/Kuala_Lumpur calendar day)
+  // Immutable server timestamps — set exclusively by the server at the moment
+  // of the action; never accepted from the client and never overwritten.
   clockIn  DateTime?
   clockOut DateTime?
   // Optional photo proof (e.g. selfie / worksite shot), stored in Supabase Storage.
   clockInPhotoUrl  String?
   clockOutPhotoUrl String?
-  status   String    @default("PRESENT") // PRESENT | LATE | ABSENT | LEAVE
+  status   String    @default("PRESENT") // PRESENT | LATE | ABSENT | LEAVE | MISSING_CHECK_OUT | COMPLETED
   note     String?
+  // Attendance Centre (Module 1) extensions.
+  workType        String  @default("OFFICE") // OFFICE | OUTSTATION | CUSTOMER_VISIT | PORT_DUTY | REMOTE_WORK | APPROVED_LEAVE
+  lateMinutes     Int     @default(0)
+  earlyLeaveMinutes Int   @default(0)
+  overtimeMinutes Int     @default(0)
+  totalWorkMinutes Int    @default(0)
+  diamondAwarded  Int     @default(0)
+  diamondDeducted Int     @default(0)
+  correctionStatus String? // APPROVED_CORRECTION when a correction was accepted
+  checkInRemark   String?
+  checkOutRemark  String?
   period   String    // "2026-07"
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -493,6 +506,169 @@ model Wish {
   updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([status])
+}
+
+// Singleton attendance policy (Boss/HR-editable). Times are "HH:MM" KL time.
+model AttendanceSetting {
+  id                    String   @id @default("singleton")
+  standardStartTime     String   @default("09:00")
+  standardEndTime       String   @default("18:00")
+  gracePeriodMinutes    Int      @default(5)
+  workingDaysJson       String   @default("[1,2,3,4,5]") // ISO weekday numbers, Mon=1
+  lunchBreakMinutes     Int      @default(60)
+  overtimeEnabled       Boolean  @default(true)
+  diamondRewardEnabled  Boolean  @default(true)
+  onTimeDiamondReward   Int      @default(5)
+  completeDayDiamondReward Int   @default(5)
+  weeklyStreakDiamondReward Int  @default(30)
+  monthlyPerfectAttendanceReward Int @default(150)
+  lateDeductionEnabled  Boolean  @default(true)
+  lateDeductionDiamond  Int      @default(5)
+  missingCheckoutDeductionDiamond Int @default(10)
+  locationRequired      Boolean  @default(false)
+  photoRequired         Boolean  @default(false)
+  updatedBy             String?
+  updatedAt             DateTime @default(now()) @updatedAt
+}
+
+// Attendance correction workflow. Original clockIn/clockOut on the record are
+// NEVER overwritten — approved corrections live here, and the record is only
+// flagged APPROVED_CORRECTION (plus any wrongly-applied deduction reversed).
+model AttendanceCorrectionRequest {
+  id                 String    @id @default(cuid())
+  attendanceRecordId String?
+  userId             String
+  date               String    // the KL day being corrected
+  requestType        String    // MISSED_CHECK_IN | MISSED_CHECK_OUT | WRONG_STATUS | OUTSTATION_APPROVAL | LATE_REASON | OTHER
+  requestedCheckInAt DateTime?
+  requestedCheckOutAt DateTime?
+  reason             String
+  evidenceUrl        String?
+  status             String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  reviewerComment    String?
+  originalCheckInAt  DateTime?
+  originalCheckOutAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  @@index([status])
+  @@index([userId, date])
+}
+
+// ===========================================================================
+// Idea Bank — improvement proposals with staged review + diamond rewards.
+// ===========================================================================
+model Proposal {
+  id                   String    @id @default(cuid())
+  title                String
+  category             String    // COST_SAVING | REVENUE_GROWTH | CUSTOMER_SERVICE | OPERATION_EFFICIENCY | FINANCE_CONTROL | SOP_IMPROVEMENT | AUTOMATION_AI | TEAM_CULTURE | RISK_PREVENTION | MARKETING | TRAINING
+  problemObserved      String
+  proposedSolution     String
+  expectedBenefit      String?
+  estimatedImpactValue Float     @default(0) // RM
+  impactedDepartmentId String?
+  submittedById        String
+  status               String    @default("SUBMITTED") // SUBMITTED | UNDER_REVIEW | REVISION_REQUESTED | ACCEPTED | REJECTED | IMPLEMENTED
+  reviewedById         String?
+  reviewedAt           DateTime?
+  reviewerComment      String?
+  acceptedAt           DateTime?
+  implementedAt        DateTime?
+  diamondsAwarded      Int       @default(0)
+  attachmentUrl        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  reviews ProposalReview[]
+
+  @@index([status])
+  @@index([submittedById])
+}
+
+// Immutable review trail for a proposal.
+model ProposalReview {
+  id              String   @id @default(cuid())
+  proposalId      String
+  proposal        Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  reviewerId      String
+  action          String   // SUBMIT | REVIEW | ACCEPT | REJECT | REQUEST_REVISION | MARK_IMPLEMENTED | AWARD_DIAMONDS
+  comment         String?
+  diamondsAwarded Int      @default(0)
+  createdAt       DateTime @default(now())
+}
+
+// ===========================================================================
+// PK Arena — individual & department competitions with live-computed standings.
+// ===========================================================================
+model PKCampaign {
+  id               String   @id @default(cuid())
+  title            String
+  description      String?
+  pkType           String   // INDIVIDUAL | DEPARTMENT
+  metricType       String   // DIAMONDS | KPI_SCORE | ATTENDANCE | PROPOSALS | BADGES | TASK_COMPLETION
+  startDate        DateTime
+  endDate          DateTime
+  status           String   @default("ACTIVE") // UPCOMING | ACTIVE | COMPLETED | CANCELLED
+  rewardFirstPlace Int      @default(300)
+  rewardSecondPlace Int     @default(200)
+  rewardThirdPlace Int      @default(100)
+  teamReward       Int      @default(150) // per-member payout for department campaigns
+  createdBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  results PKResult[]
+
+  @@index([status])
+}
+
+model PKResult {
+  id                 String     @id @default(cuid())
+  campaignId         String
+  campaign           PKCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  winnerUserId       String?
+  winnerDepartmentId String?
+  rank               Int
+  finalScore         Float      @default(0)
+  diamondsAwarded    Int        @default(0)
+  createdAt          DateTime   @default(now())
+}
+
+// ===========================================================================
+// Diamond Game Engine — admin-defined missions with auto-computed progress and
+// one-claim-per-period rewards.
+// ===========================================================================
+model Mission {
+  id                    String   @id @default(cuid())
+  title                 String
+  description           String?
+  missionType           String   // DAILY | WEEKLY | MONTHLY
+  category              String   // ATTENDANCE | DAILY_REPORT | TASK | PROPOSAL | TRAINING | BADGE
+  targetValue           Int      @default(1)
+  diamondReward         Int      @default(10)
+  luckyDrawEntries      Int      @default(0)
+  departmentEligibility String   @default("ALL")
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now()) @updatedAt
+
+  claims MissionClaim[]
+}
+
+// One claim per mission per period per user — the core anti-abuse guarantee.
+model MissionClaim {
+  id              String   @id @default(cuid())
+  missionId       String
+  mission         Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  userId          String
+  periodKey       String   // "2026-07-02" (daily) | "2026-W27" (weekly) | "2026-07" (monthly)
+  progress        Int      @default(0)
+  diamondsAwarded Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@unique([missionId, userId, periodKey])
 }
 
 // ===========================================================================

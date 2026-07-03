@@ -37,6 +37,22 @@ export const DIAMOND_SOURCE_TYPES: Record<string, string> = {
   ANNUAL_DINNER_BONUS: "Annual Dinner Bonus",
   CORRECTION: "Correction / Adjustment",
   MANUAL: "Manual Owner Generation",
+  // Attendance / games / proposals / PK (auto-generated sources)
+  ATTENDANCE_ON_TIME: "On-time Attendance",
+  ATTENDANCE_COMPLETE: "Complete Attendance Day",
+  ATTENDANCE_STREAK: "Attendance Streak",
+  PERFECT_ATTENDANCE: "Perfect Attendance",
+  ATTENDANCE_LATE_PENALTY: "Late Penalty",
+  MISSING_CHECKOUT_PENALTY: "Missing Check-out Penalty",
+  CORRECTION_REVERSAL: "Correction Reversal",
+  PROPOSAL_ACCEPTED: "Proposal Accepted",
+  PROPOSAL_IMPLEMENTED: "Proposal Implemented",
+  PK_WINNER: "PK Winner",
+  TEAM_PK_WINNER: "Team PK Winner",
+  MISSION_COMPLETION: "Mission Completion",
+  STREAK: "Check-in Streak",
+  DAILY_SPIN: "Daily Spin",
+  MYSTERY_BONUS: "Mystery Bonus",
 };
 
 export const DIAMOND_TXN_TYPES: Record<string, string> = {

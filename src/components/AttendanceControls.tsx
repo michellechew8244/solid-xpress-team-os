@@ -5,9 +5,13 @@ import { clockIn, clockOut, markAttendance } from "@/app/(app)/attendance/action
 import { uploadProofPhoto } from "@/lib/upload-client";
 import { FileDropZone } from "@/components/FileDropZone";
 
-export function ClockButtons({ clockedIn, clockedOut }: { clockedIn: boolean; clockedOut: boolean }) {
+export function ClockButtons({ clockedIn, clockedOut, workTypes, photoRequired }: {
+  clockedIn: boolean; clockedOut: boolean; workTypes: Record<string, string>; photoRequired?: boolean;
+}) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  const [workType, setWorkType] = useState("OFFICE");
+  const [remark, setRemark] = useState("");
   const photoRef = useRef<HTMLInputElement>(null);
 
   // Uploads the selected photo (if any) straight to cloud storage, then clocks.
@@ -16,36 +20,50 @@ export function ClockButtons({ clockedIn, clockedOut }: { clockedIn: boolean; cl
     start(async () => {
       try {
         const file = photoRef.current?.files?.[0];
+        if (photoRequired && (!file || file.size === 0)) throw new Error("A photo proof is required by company policy.");
         const photoUrl = file && file.size > 0 ? await uploadProofPhoto(file) : null;
         await fn(photoUrl);
         if (photoRef.current) photoRef.current.value = "";
+        setRemark("");
       } catch (e) { setErr(e instanceof Error ? e.message : "Error"); }
     });
   };
 
   const done = clockedIn && clockedOut;
   return (
-    <div className="flex flex-col items-start gap-2 sm:items-end">
-      {!done && (
-        <div className="w-full sm:w-64">
-          {/* key remounts the zone after each clock action so the old file is cleared */}
-          <FileDropZone
-            key={`${clockedIn}-${clockedOut}`}
-            name="photo"
-            accept="image/png,image/jpeg,image/webp"
-            capture="environment"
-            label="📷 Photo proof (optional)"
-            hint="PNG/JPG/WebP · drag it in or tap to snap"
-            inputRef={photoRef}
-          />
+    <div className="flex w-full flex-col gap-2 sm:max-w-xs">
+      {!clockedIn && (
+        <div>
+          <label className="label">Work type today</label>
+          <select className="input" value={workType} onChange={(e) => setWorkType(e.target.value)}>
+            {Object.entries(workTypes).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
         </div>
       )}
+      {!done && (
+        <>
+          <div>
+            {/* key remounts the zone after each clock action so the old file is cleared */}
+            <FileDropZone
+              key={`${clockedIn}-${clockedOut}`}
+              name="photo"
+              accept="image/png,image/jpeg,image/webp"
+              capture="environment"
+              label={photoRequired ? "📷 Photo proof (required)" : "📷 Photo proof (optional)"}
+              hint="PNG/JPG/WebP · drag it in or tap to snap"
+              inputRef={photoRef}
+            />
+          </div>
+          <input className="input" placeholder="Remark (optional)" value={remark} onChange={(e) => setRemark(e.target.value)} />
+        </>
+      )}
       <div className="flex flex-wrap items-center gap-2">
-        {!clockedIn && <button className="btn-primary" disabled={pending} onClick={() => run(clockIn)}>{pending ? "Uploading…" : "🕘 Clock In"}</button>}
-        {clockedIn && !clockedOut && <button className="btn-primary" disabled={pending} onClick={() => run(clockOut)}>{pending ? "Uploading…" : "🕔 Clock Out"}</button>}
+        {!clockedIn && <button className="btn-primary" disabled={pending} onClick={() => run((p) => clockIn(p, workType, remark || undefined))}>{pending ? "Recording…" : "🕘 Check In Now"}</button>}
+        {clockedIn && !clockedOut && <button className="btn-primary" disabled={pending} onClick={() => run((p) => clockOut(p, remark || undefined))}>{pending ? "Recording…" : "🕔 Check Out Now"}</button>}
         {done && <span className="text-sm font-semibold text-ok">✅ Done for today</span>}
         {err && <span className="text-xs text-danger">{err}</span>}
       </div>
+      <p className="text-[10px] text-ink-muted">Times are captured by the server automatically — they cannot be typed or edited. Mistake? Use a correction request.</p>
     </div>
   );
 }

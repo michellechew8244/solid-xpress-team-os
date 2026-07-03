@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui";
 import { BossDashboard } from "@/components/dashboard/BossDashboard";
 import { DeptDashboard } from "@/components/dashboard/DeptDashboard";
 import { StaffHome } from "@/components/dashboard/StaffHome";
+import { OpsPulse } from "@/components/dashboard/OpsPulse";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -14,6 +15,7 @@ export default async function DashboardPage() {
     return (
       <>
         <PageHeader title={`Welcome, ${user.name.split(" ")[0]}`} subtitle="Company-wide performance at a glance" />
+        <OpsPulse />
         <BossDashboard name={user.name} />
       </>
     );

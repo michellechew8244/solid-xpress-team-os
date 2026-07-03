@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { currentPeriod, growthLevelName, LEVEL_THRESHOLDS, GRADE_LABEL } from "@/lib/enums";
 import { isOverdue, shortDate, ragFromPct } from "@/lib/format";
+import { klNow } from "@/lib/attendance";
 import { Avatar, Card, Pill, Progress, SectionTitle, StatCard } from "@/components/ui";
 import { AiPanel } from "@/components/AiPanel";
 
@@ -30,6 +31,13 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
 
   if (!user) return null;
 
+  // Today's attendance + diamonds-today pulse (Attendance Centre / Game Centre).
+  const { dateStr } = klNow();
+  const [todayAtt, todayDiamonds] = await Promise.all([
+    prisma.attendanceRecord.findUnique({ where: { userId_date: { userId, date: dateStr } } }),
+    prisma.pointsTransaction.aggregate({ where: { userId, amount: { gt: 0 }, createdAt: { gte: new Date(`${dateStr}T00:00:00+08:00`) } }, _sum: { amount: true } }),
+  ]);
+
   const avgKpi = kpiResults.length ? Math.round(kpiResults.reduce((s, r) => s + r.achievementPct, 0) / kpiResults.length) : 0;
   const myEntries = luckyEntries.reduce((s, e) => s + e.entryCount, 0);
   const nextThreshold = LEVEL_THRESHOLDS[user.officialLevel] ?? LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
@@ -39,6 +47,21 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
 
   return (
     <div className="space-y-6">
+      {/* ⏰🎮 Daily pulse: attendance + games */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-brand-50 to-white px-4 py-3 text-sm">
+        {todayAtt?.clockIn ? (
+          <span className="font-semibold text-ok">✅ Checked in{todayAtt.clockOut ? " & out" : ""} today</span>
+        ) : (
+          <Link href="/attendance" className="font-semibold text-brand-700 hover:underline">⏰ You haven&apos;t checked in yet — check in now →</Link>
+        )}
+        <span className="text-ink-muted">·</span>
+        <span className="text-ink-muted">💎 +{todayDiamonds._sum.amount ?? 0} earned today</span>
+        <span className="text-ink-muted">·</span>
+        <Link href="/missions-hub" className="text-brand-700 hover:underline">🎮 Today&apos;s missions →</Link>
+        <span className="text-ink-muted">·</span>
+        <Link href="/pk-arena" className="text-brand-700 hover:underline">⚔️ PK Arena →</Link>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Monthly Score"

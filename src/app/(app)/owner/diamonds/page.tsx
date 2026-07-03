@@ -8,6 +8,7 @@ import { Avatar, Card, PageHeader, SectionTitle, StatCard } from "@/components/u
 import { DIAMOND_SOURCE_TYPES } from "@/lib/diamonds";
 import { GenerateDiamondForm } from "@/components/diamonds/GenerateDiamondForm";
 import { AdjustDiamondForm } from "@/components/diamonds/AdjustDiamondForm";
+import { MysteryBonusForm } from "@/components/diamonds/MysteryBonusForm";
 
 export default async function DiamondControlCentre() {
   const user = await getCurrentUser();
@@ -66,6 +67,12 @@ export default async function DiamondControlCentre() {
       <Card className="mt-6">
         <SectionTitle>💎 Generate Diamonds</SectionTitle>
         <GenerateDiamondForm staff={staff} departments={departments} sourceTypes={DIAMOND_SOURCE_TYPES} />
+      </Card>
+
+      <Card className="mt-6">
+        <SectionTitle>🎁 Mystery Bonus</SectionTitle>
+        <p className="mb-3 -mt-1 text-xs text-ink-muted">Owner-only surprise rewards — random staff, a department, everyone, or one person who deserved it today.</p>
+        <MysteryBonusForm staff={staff} departments={departments} />
       </Card>
 
       <Card className="mt-6">
