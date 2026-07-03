@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { isBoss } from "@/lib/rbac";
+import { getFeatureOverrides, hasFeatureAccess } from "@/lib/features";
 import { GRADE_LABEL } from "@/lib/enums";
 
 export interface StaffReportRow {
@@ -13,7 +14,12 @@ export interface StaffReportRow {
 /** Build the monthly performance rows (staff-level) for a period like "2026-07". */
 export async function getMonthlyReport(period: string): Promise<StaffReportRow[]> {
   const s = await getSession();
-  if (!s || !(isBoss(s.role) || s.role === "HR_ADMIN")) throw new Error("Forbidden");
+  if (!s) throw new Error("Forbidden");
+  // Role default (Boss/HR) unless a per-user feature override says otherwise.
+  if (!isBoss(s.role)) {
+    const overrides = await getFeatureOverrides(s.id);
+    if (!hasFeatureAccess(s.role, overrides, "reports")) throw new Error("Forbidden");
+  }
 
   const [users, txns, reviews, attendance] = await Promise.all([
     prisma.user.findMany({ where: { role: { in: ["STAFF", "DEPARTMENT_HEAD"] }, isActive: true }, include: { department: { select: { name: true } } }, orderBy: { name: "asc" } }),
