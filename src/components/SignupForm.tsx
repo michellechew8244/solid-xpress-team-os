@@ -25,11 +25,21 @@ export function SignupForm({ departments }: { departments: { id: string; name: s
   return (
     <form
       ref={ref}
-      action={(fd) => start(async () => { setErr(null); try { await signUp(fd); setDone(true); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
+      action={(fd) => start(async () => {
+        setErr(null);
+        // Photo is required — it becomes the staff avatar. Check before submitting.
+        const photo = fd.get("photo");
+        if (!(photo instanceof File) || photo.size === 0) { setErr("Please take a photo (or choose one) — it becomes your avatar in the app. 📷"); return; }
+        try {
+          const res = await signUp(fd);
+          if (res.ok) setDone(true);
+          else setErr(res.error);
+        } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong — please try again."); }
+      })}
       className="grid gap-3 sm:grid-cols-2"
     >
       <div className="sm:col-span-2">
-        <FileDropZone name="photo" accept="image/png,image/jpeg,image/webp" capture="user" label="📷 Profile photo (optional)" hint="PNG/JPG/WebP · max 3MB" />
+        <FileDropZone name="photo" accept="image/png,image/jpeg,image/webp" capture="user" label="📷 Your photo * (this becomes your avatar)" hint="Tap to open the camera and take a selfie · max 3MB" />
       </div>
       <div className="sm:col-span-2"><label className="label">Full name *</label><input name="name" className="input" required /></div>
       <div><label className="label">Email *</label><input name="email" type="email" className="input" required /></div>
