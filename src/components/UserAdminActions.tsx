@@ -17,6 +17,7 @@ export interface RowUser {
   jobTitle: string | null;
   phoneNumber: string | null;
   avatarUrl: string | null;
+  dateOfBirth: string | null; // "YYYY-MM-DD" for the date input
   departmentId: string | null;
   managerId: string | null;
   employmentType: string;
@@ -83,6 +84,7 @@ export function UserRowActions({
             )}
             <div><label className="label">Job title</label><input name="jobTitle" className="input" defaultValue={user.jobTitle ?? ""} /></div>
             <div><label className="label">Phone</label><input name="phoneNumber" className="input" defaultValue={user.phoneNumber ?? ""} /></div>
+            <div><label className="label">🎂 Date of birth</label><input name="dateOfBirth" type="date" className="input" defaultValue={user.dateOfBirth ?? ""} /></div>
             {scope === "full" && (
               <>
                 <div>

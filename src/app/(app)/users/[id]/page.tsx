@@ -85,7 +85,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
         <Card className="mb-6">
           <SectionTitle>Management Actions</SectionTitle>
           <UserRowActions
-            user={{ id: user.id, name: user.name, email: user.email, employeeCode: user.employeeCode, role: user.role, jobTitle: user.jobTitle, phoneNumber: user.phoneNumber, avatarUrl: user.avatarUrl, departmentId: user.departmentId, managerId: user.managerId, employmentType: user.employmentType, employmentStatus: user.employmentStatus, accessStatus: user.accessStatus }}
+            user={{ id: user.id, name: user.name, email: user.email, employeeCode: user.employeeCode, role: user.role, jobTitle: user.jobTitle, phoneNumber: user.phoneNumber, avatarUrl: user.avatarUrl, dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : null, departmentId: user.departmentId, managerId: user.managerId, employmentType: user.employmentType, employmentStatus: user.employmentStatus, accessStatus: user.accessStatus }}
             scope={scope}
             canReset={canResetPassword(me.role, user.role)}
             canToggle={canDeactivateUsers(me.role)}
@@ -141,6 +141,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
             <Field label="Role" value={ROLE_SHORT[user.role] ?? user.role} />
             <Field label="Manager" value={user.manager?.name} />
             <Field label="Join Date" value={shortDate(user.joinDate)} />
+            <Field label="🎂 Date of Birth" value={user.dateOfBirth ? shortDate(user.dateOfBirth) : "—"} />
             <Field label="Employment Type" value={user.employmentType.replace(/_/g, " ")} />
             <Field label="Employment Status" value={user.employmentStatus} />
             <Field label="Access Status" value={user.accessStatus} />

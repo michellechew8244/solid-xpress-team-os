@@ -67,6 +67,7 @@ export async function createUser(formData: FormData): Promise<CreateUserResult> 
       jobTitle: String(formData.get("jobTitle") ?? "") || null,
       phoneNumber: String(formData.get("phoneNumber") ?? "") || null,
       avatarUrl: String(formData.get("avatarUrl") ?? "") || null,
+      dateOfBirth: formData.get("dateOfBirth") ? new Date(String(formData.get("dateOfBirth"))) : null,
       employmentType: String(formData.get("employmentType") ?? "FULL_TIME"),
       employmentStatus: String(formData.get("employmentStatus") ?? "PROBATION"),
       accessStatus: "ACTIVE",
@@ -156,6 +157,11 @@ export async function updateUser(formData: FormData) {
   if (phoneNumber !== target.phoneNumber) { data.phoneNumber = phoneNumber; changes.phoneNumber = [target.phoneNumber, phoneNumber]; }
   const avatarUrl = String(formData.get("avatarUrl") ?? "") || null;
   if (avatarUrl !== target.avatarUrl) data.avatarUrl = avatarUrl;
+  // Date of birth — powers the birthday celebration. Empty clears it.
+  if (formData.has("dateOfBirth")) {
+    const dobRaw = String(formData.get("dateOfBirth") ?? "");
+    data.dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dobRaw) ? new Date(`${dobRaw}T00:00:00Z`) : null;
+  }
 
   if (scope === "full") {
     const name = String(formData.get("name") ?? "").trim();

@@ -127,7 +127,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                     <td className="px-3 text-xs text-ink-muted">{u.lastLoginAt ? dateTime(u.lastLoginAt) : "never"}</td>
                     <td className="px-3">
                       <UserRowActions
-                        user={{ id: u.id, name: u.name, email: u.email, employeeCode: u.employeeCode, role: u.role, jobTitle: u.jobTitle, phoneNumber: u.phoneNumber, avatarUrl: u.avatarUrl, departmentId: u.departmentId, managerId: u.managerId, employmentType: u.employmentType, employmentStatus: u.employmentStatus, accessStatus: u.accessStatus }}
+                        user={{ id: u.id, name: u.name, email: u.email, employeeCode: u.employeeCode, role: u.role, jobTitle: u.jobTitle, phoneNumber: u.phoneNumber, avatarUrl: u.avatarUrl, dateOfBirth: u.dateOfBirth ? u.dateOfBirth.toISOString().slice(0, 10) : null, departmentId: u.departmentId, managerId: u.managerId, employmentType: u.employmentType, employmentStatus: u.employmentStatus, accessStatus: u.accessStatus }}
                         scope={scope}
                         canReset={canResetPassword(me.role, u.role)}
                         canToggle={canDeactivateUsers(me.role)}

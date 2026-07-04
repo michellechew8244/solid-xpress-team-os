@@ -55,6 +55,7 @@ export function NewUserForm({ departments, managers, roles }: { departments: Per
             <select name="managerId" className="input"><option value="">— none —</option>{managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
           </div>
           <div><label className="label">Phone</label><input name="phoneNumber" className="input" /></div>
+          <div><label className="label">🎂 Date of birth</label><input name="dateOfBirth" type="date" className="input" /></div>
           <div><label className="label">Join date</label><input name="joinDate" type="date" className="input" /></div>
           <div>
             <label className="label">Employment type</label>
