@@ -33,3 +33,7 @@ npm-debug.log*
 
 .vercel
 .env*
+
+# scratch scripts
+_*.mjs
+_*.mts
