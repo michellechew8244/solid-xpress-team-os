@@ -131,6 +131,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                         scope={scope}
                         canReset={canResetPassword(me.role, u.role)}
                         canToggle={canDeactivateUsers(me.role)}
+                        canDelete={isBoss(me.role) && !isBoss(u.role)}
                         departments={departments}
                         managers={managers}
                         roles={assignableRoles}

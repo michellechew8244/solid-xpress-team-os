@@ -247,6 +247,72 @@ export async function reactivateUser(id: string) {
   await setAccess(id, true);
 }
 
+export type DeleteUserResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Permanently delete a DEACTIVATED staff account and all their personal
+ * records (PDPA erasure). Boss/Management only; active accounts must be
+ * deactivated first, so a working account can never be deleted by accident.
+ * Where the person was merely an actor on someone else's record (reporting
+ * manager, task creator, KPI owner, review manager...) the reference is
+ * detached so the other staff's history is kept.
+ */
+export async function deleteUser(id: string): Promise<DeleteUserResult> {
+  const fail = (error: string): DeleteUserResult => ({ ok: false, error });
+  const me = await actor();
+  if (!isBoss(me.role)) return fail("Only Boss / Management can delete staff records.");
+  if (me.id === id) return fail("You cannot delete your own account.");
+
+  const target = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, role: true, accessStatus: true, isActive: true } });
+  if (!target) return fail("User not found.");
+  if (isBoss(target.role)) return fail("Boss / Management accounts cannot be deleted here.");
+  if (target.isActive || target.accessStatus === "ACTIVE") {
+    return fail("This account is still active — deactivate it first, then delete.");
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Detach where they were only an actor on other people's records.
+      await tx.user.updateMany({ where: { managerId: id }, data: { managerId: null } });
+      await tx.kPI.updateMany({ where: { ownerId: id }, data: { ownerId: null } });
+      await tx.kPI.updateMany({ where: { reviewerId: id }, data: { reviewerId: null } });
+      await tx.task.updateMany({ where: { assigneeId: id }, data: { assigneeId: null } });
+      await tx.task.updateMany({ where: { reviewerId: id }, data: { reviewerId: null } });
+      await tx.task.updateMany({ where: { createdById: id }, data: { createdById: null } });
+      await tx.training.updateMany({ where: { createdById: id }, data: { createdById: null } });
+      await tx.attachment.updateMany({ where: { uploadedById: id }, data: { uploadedById: null } });
+      await tx.luckyDrawPrize.updateMany({ where: { winnerUserId: id }, data: { winnerUserId: null } });
+      await tx.levelUpgradeRequest.updateMany({ where: { approvedById: id }, data: { approvedById: null } });
+      await tx.performanceReview.updateMany({ where: { managerId: id }, data: { managerId: null } });
+
+      // Their own records that don't cascade automatically.
+      await tx.taskComment.deleteMany({ where: { authorId: id } });
+      await tx.kPIResult.deleteMany({ where: { userId: id } });
+      await tx.rewardRedemption.deleteMany({ where: { userId: id } });
+      await tx.coachingRecord.deleteMany({ where: { OR: [{ staffId: id }, { coachId: id }] } });
+      await tx.performanceReview.deleteMany({ where: { staffId: id } });
+      await tx.trainingCompletion.deleteMany({ where: { userId: id } });
+      await tx.quizAttempt.deleteMany({ where: { userId: id } }); // answers cascade from attempt
+      await tx.luckyDrawEntry.deleteMany({ where: { userId: id } });
+
+      // Everything else (wallet, attendance, badges, reports, forum, wishes,
+      // notifications, feature access, profile...) cascades from the user row.
+      await tx.user.delete({ where: { id } });
+    });
+  } catch (e) {
+    console.error("deleteUser failed:", e);
+    return fail("Delete failed — this account still has linked records. Contact support or keep it deactivated.");
+  }
+
+  await logAudit(prisma, {
+    action: "USER_DELETED", entityId: id, entityType: "USER",
+    performedBy: me.id, actorName: me.name,
+    newValue: { name: target.name, email: target.email },
+  });
+  revalidatePath("/users");
+  return { ok: true };
+}
+
 /** Self-service profile update (any user): phone, avatar, and optional password. */
 export async function updateMyProfile(formData: FormData) {
   const me = await actor();

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ROLE_LABELS } from "@/lib/enums";
 import { EMPLOYMENT_TYPES, EMPLOYMENT_STATUSES } from "@/lib/user-permissions";
-import { updateUser, resetUserPassword, deactivateUser, reactivateUser } from "@/app/(app)/users/actions";
+import { updateUser, resetUserPassword, deactivateUser, reactivateUser, deleteUser } from "@/app/(app)/users/actions";
 
 type Person = { id: string; name: string };
 
@@ -41,6 +41,7 @@ export function UserRowActions({
   scope,
   canReset,
   canToggle,
+  canDelete = false,
   departments,
   managers,
   roles,
@@ -49,12 +50,14 @@ export function UserRowActions({
   scope: "full" | "limited" | "none";
   canReset: boolean;
   canToggle: boolean;
+  canDelete?: boolean;
   departments: Person[];
   managers: Person[];
   roles: string[];
 }) {
-  const [modal, setModal] = useState<null | "edit" | "reset" | "deactivate">(null);
+  const [modal, setModal] = useState<null | "edit" | "reset" | "deactivate" | "delete">(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState("");
   const [pending, start] = useTransition();
   const active = user.accessStatus === "ACTIVE";
 
@@ -67,6 +70,9 @@ export function UserRowActions({
         active
           ? <button className="btn-ghost px-2 py-1 text-xs text-danger" onClick={() => setModal("deactivate")}>Deactivate</button>
           : <button className="btn-ghost px-2 py-1 text-xs text-ok" disabled={pending} onClick={() => start(() => reactivateUser(user.id))}>Reactivate</button>
+      )}
+      {canDelete && !active && (
+        <button className="btn-ghost px-2 py-1 text-xs text-danger" onClick={() => { setMsg(null); setConfirmText(""); setModal("delete"); }}>🗑️ Delete</button>
       )}
 
       {modal === "edit" && (
@@ -130,6 +136,40 @@ export function UserRowActions({
             {msg && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{msg}</div>}
             <div className="flex gap-2"><button className="btn-primary">Update password</button><button type="button" className="btn-ghost" onClick={() => setModal(null)}>Cancel</button></div>
           </form>
+        </Modal>
+      )}
+
+      {modal === "delete" && (
+        <Modal title={`Delete ${user.name} permanently`} onClose={() => setModal(null)}>
+          <p className="text-sm text-ink-soft">
+            This <strong>permanently deletes</strong> {user.name}&apos;s account and all their personal records —
+            attendance, diamonds, KPI results, redemptions, reviews, forum messages and more.
+            <strong> This cannot be undone.</strong>
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            Records belonging to other staff are kept (this person is simply removed as manager/creator where referenced).
+            If you only want to stop them logging in, Deactivate already does that and keeps history.
+          </p>
+          <div className="mt-3">
+            <label className="label">Type <strong>DELETE</strong> to confirm</label>
+            <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="DELETE" />
+          </div>
+          {msg && <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{msg}</div>}
+          <div className="mt-4 flex gap-2">
+            <button
+              className="btn-danger"
+              disabled={pending || confirmText !== "DELETE"}
+              onClick={() => start(async () => {
+                setMsg(null);
+                const res = await deleteUser(user.id);
+                if (res.ok) setModal(null);
+                else setMsg(res.error);
+              })}
+            >
+              {pending ? "Deleting…" : "Delete permanently"}
+            </button>
+            <button className="btn-ghost" onClick={() => setModal(null)}>Cancel</button>
+          </div>
         </Modal>
       )}
 

@@ -89,6 +89,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
             scope={scope}
             canReset={canResetPassword(me.role, user.role)}
             canToggle={canDeactivateUsers(me.role)}
+            canDelete={isBoss(me.role) && !isBoss(user.role)}
             departments={departments}
             managers={managers}
             roles={assignableRoles}
