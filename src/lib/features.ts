@@ -66,6 +66,7 @@ export const FEATURES: Record<string, FeatureDef> = {
   "attendance-settings": { label: "Attendance Settings", icon: "⚙️", hrefs: ["/attendance/settings"], roles: ADMINS },
   "pk-campaigns":      { label: "PK Campaign Admin", icon: "⚔️", hrefs: ["/pk-arena/campaigns"], roles: ADMINS },
   "diamond-requests":  { label: "Diamond Requests", icon: "📥", hrefs: ["/diamonds/requests"], roles: [...MGRS] },
+  "reward-rules":      { label: "Reward Rules", icon: "🎯", hrefs: ["/settings/reward-rules"], roles: ["SUPER_ADMIN", "MANAGEMENT"] },
 };
 
 export function isBossRole(role: string) {

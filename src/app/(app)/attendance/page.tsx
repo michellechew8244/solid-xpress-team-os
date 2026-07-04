@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBoss } from "@/lib/rbac";
 import { klNow, computeStreak, getAttendanceSetting, WORK_TYPES, finalizeOpenDays } from "@/lib/attendance";
-import { STREAK_MILESTONES } from "@/lib/games";
+import { getRewardRuleSetting, streakMilestones, spinWheelValues } from "@/lib/reward-rules";
 import { Avatar, Card, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { ClockButtons, MarkAttendanceForm } from "@/components/AttendanceControls";
 import { DailySpinGame } from "@/components/DailySpinGame";
@@ -27,7 +27,7 @@ export default async function AttendancePage() {
   // Settle any past open days (missing check-outs, perfect-month awards) lazily.
   await finalizeOpenDays(user.id);
 
-  const [today, myMonth, teamMonth, staff, todaySpin, streak, setting] = await Promise.all([
+  const [today, myMonth, teamMonth, staff, todaySpin, streak, setting, rewardRules] = await Promise.all([
     prisma.attendanceRecord.findUnique({ where: { userId_date: { userId: user.id, date: dateStr } } }),
     prisma.attendanceRecord.findMany({ where: { userId: user.id, period }, orderBy: { date: "desc" } }),
     isManager
@@ -39,8 +39,11 @@ export default async function AttendancePage() {
     prisma.dailySpin.findUnique({ where: { userId_date: { userId: user.id, date: dateStr } } }),
     computeStreak(user.id, dateStr),
     getAttendanceSetting(),
+    getRewardRuleSetting(),
   ]);
 
+  const STREAK_MILESTONES = streakMilestones(rewardRules);
+  const wheelValues = spinWheelValues(rewardRules);
   const count = (s: string) => myMonth.filter((r) => r.status === s).length;
   const diamondsToday = (today?.diamondAwarded ?? 0) - (today?.diamondDeducted ?? 0);
   const hm = (m: number) => `${Math.floor(m / 60)}h ${m % 60}m`;
@@ -114,7 +117,7 @@ export default async function AttendancePage() {
         <Card>
           <SectionTitle>🎡 Daily Check-in Spin</SectionTitle>
           <p className="mb-2 -mt-1 text-xs text-ink-muted">One free spin every day you clock in. Win 2–20 diamonds!</p>
-          <DailySpinGame clockedIn={Boolean(today?.clockIn)} alreadySpun={Boolean(todaySpin)} />
+          <DailySpinGame clockedIn={Boolean(today?.clockIn)} alreadySpun={Boolean(todaySpin)} wheelValues={wheelValues} />
         </Card>
       </div>
 

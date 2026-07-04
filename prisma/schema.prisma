@@ -565,6 +565,24 @@ model UserFeatureAccess {
   @@unique([userId, featureKey])
 }
 
+model RewardRuleSetting {
+  id                        String   @id @default("singleton")
+  streakEnabled             Boolean  @default(true)
+  streakDay3                Int      @default(10)
+  streakDay7                Int      @default(25)
+  streakDay14               Int      @default(50)
+  streakDay30               Int      @default(100)
+  dailySpinEnabled          Boolean  @default(true)
+  spinPrizeCommon           Int      @default(2)
+  spinPrizeUncommon         Int      @default(5)
+  spinPrizeRare             Int      @default(10)
+  spinPrizeJackpot          Int      @default(20)
+  proposalAcceptedReward    Int      @default(100)
+  proposalImplementedReward Int      @default(300)
+  updatedById               String?
+  updatedAt                 DateTime @default(now()) @updatedAt
+}
+
 // Singleton attendance policy (Boss/HR-editable). Times are "HH:MM" KL time.
 model AttendanceSetting {
   id                    String   @id @default("singleton")

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { currentPeriod, growthLevelName, LEVEL_THRESHOLDS, GRADE_LABEL } from "@/lib/enums";
 import { isOverdue, shortDate, ragFromPct } from "@/lib/format";
 import { klNow } from "@/lib/attendance";
+import { kpiPoints } from "@/lib/points";
 import { Avatar, Card, Pill, Progress, SectionTitle, StatCard } from "@/components/ui";
 import { AiPanel } from "@/components/AiPanel";
 
@@ -33,10 +34,26 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
 
   // Today's attendance + diamonds-today pulse (Attendance Centre / Game Centre).
   const { dateStr } = klNow();
-  const [todayAtt, todayDiamonds] = await Promise.all([
+  const [todayAtt, todayDiamonds, deptKpis] = await Promise.all([
     prisma.attendanceRecord.findUnique({ where: { userId_date: { userId, date: dateStr } } }),
     prisma.pointsTransaction.aggregate({ where: { userId, amount: { gt: 0 }, createdAt: { gte: new Date(`${dateStr}T00:00:00+08:00`) } }, _sum: { amount: true } }),
+    // Monthly KPI progress: every active KPI in the staff's department + their result.
+    user.departmentId
+      ? prisma.kPI.findMany({ where: { departmentId: user.departmentId, status: "ACTIVE" }, include: { results: { where: { userId, period } } }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
   ]);
+
+  // Per-KPI progress + point calculation (points = achievement% × multiplier, capped at max).
+  const kpiRows = deptKpis.map((k) => {
+    const res = k.results[0];
+    const actual = res?.actualValue ?? 0;
+    const achievement = k.targetValue > 0 ? Math.round((actual / k.targetValue) * 100) : 0;
+    const points = kpiPoints(achievement, k.pointMultiplier, k.maxPoints);
+    return { id: k.id, name: k.name, unit: k.unit, target: k.targetValue, actual, achievement, points, maxPoints: k.maxPoints, multiplier: k.pointMultiplier, status: res?.status ?? "NOT_STARTED", credited: res?.credited ?? false };
+  });
+  const kpiOverall = kpiRows.length ? Math.round(kpiRows.reduce((s, r) => s + r.achievement, 0) / kpiRows.length) : 0;
+  const kpiPointsEarned = kpiRows.reduce((s, r) => s + r.points, 0);
+  const kpiPointsMax = kpiRows.reduce((s, r) => s + r.maxPoints, 0);
 
   const avgKpi = kpiResults.length ? Math.round(kpiResults.reduce((s, r) => s + r.achievementPct, 0) / kpiResults.length) : 0;
   const myEntries = luckyEntries.reduce((s, e) => s + e.entryCount, 0);
@@ -81,6 +98,52 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
         <StatCard label="Diamond Earned" value={user.lifetimePoints.toLocaleString()} sub={`Level ${user.officialLevel}`} rag="neutral" icon="🚀" />
         <StatCard label="Badges Earned" value={badges.length} sub="recognition" rag="neutral" icon="🏅" />
       </div>
+
+      {/* 📈 Monthly KPI progress + point calculation */}
+      <Card>
+        <SectionTitle action={<Link href="/kpi" className="text-xs font-semibold text-brand-600">Enter actuals →</Link>}>
+          📈 My Monthly KPI Progress · {period}
+        </SectionTitle>
+        {kpiRows.length === 0 ? (
+          <p className="text-sm text-ink-muted">No KPIs assigned to your department yet.</p>
+        ) : (
+          <>
+            <div className="mb-3 flex flex-wrap items-center gap-4">
+              <div>
+                <div className="text-xs text-ink-muted">Overall achievement</div>
+                <div className={`text-2xl font-bold ${kpiOverall >= 90 ? "text-ok" : kpiOverall >= 70 ? "text-warn" : "text-danger"}`}>{kpiOverall}%</div>
+              </div>
+              <div className="min-w-[160px] flex-1">
+                <Progress value={Math.min(100, kpiOverall)} rag={ragFromPct(kpiOverall)} />
+                <div className="mt-1 text-xs text-ink-muted">KPI diamonds this month: <strong className="text-brand-700">{kpiPointsEarned}</strong> / {kpiPointsMax} possible</div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase text-ink-muted">
+                    <th className="py-2 pr-2">KPI</th><th className="px-2 py-2 text-right">Target</th><th className="px-2 py-2 text-right">Actual</th>
+                    <th className="px-2 py-2 text-right">Achieved</th><th className="px-2 py-2">Point calculation</th><th className="px-2 py-2 text-right">💎</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kpiRows.map((r) => (
+                    <tr key={r.id} className="border-b border-slate-50">
+                      <td className="py-2 pr-2 font-medium text-ink">{r.name}{r.credited && <span className="ml-1 badge bg-green-100 text-green-700">credited</span>}</td>
+                      <td className="px-2 py-2 text-right text-ink-muted">{r.target.toLocaleString()}{r.unit ? ` ${r.unit}` : ""}</td>
+                      <td className="px-2 py-2 text-right">{r.actual.toLocaleString()}</td>
+                      <td className={`px-2 py-2 text-right font-semibold ${r.achievement >= 90 ? "text-ok" : r.achievement >= 70 ? "text-warn" : "text-danger"}`}>{r.achievement}%</td>
+                      <td className="px-2 py-2 text-xs text-ink-muted">{r.achievement}% × {r.multiplier} = {Math.round(r.achievement * r.multiplier)}{Math.round(r.achievement * r.multiplier) > r.maxPoints ? ` → capped ${r.maxPoints}` : ""}</td>
+                      <td className="px-2 py-2 text-right font-bold text-brand-700">{r.points}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[11px] text-ink-muted">💡 KPI diamonds = achievement % × multiplier, capped at each KPI&apos;s max. Diamonds are credited to your wallet once your manager approves your submission.</p>
+          </>
+        )}
+      </Card>
 
       <Card>
         <SectionTitle action={<Link href="/badges" className="text-xs font-semibold text-brand-600">View Growth Roadmap →</Link>}>

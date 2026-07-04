@@ -7,9 +7,10 @@ import { Confetti } from "@/components/Confetti";
 import { SPIN_WHEEL_VALUES } from "@/lib/games";
 
 const COLORS = ["#2f60f0", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#4d7c0f"];
-const SEGMENTS: WheelSegment[] = SPIN_WHEEL_VALUES.map((v, i) => ({ key: String(i), label: `${v} 💎`, color: COLORS[i % COLORS.length] }));
 
-export function DailySpinGame({ clockedIn, alreadySpun }: { clockedIn: boolean; alreadySpun: boolean }) {
+export function DailySpinGame({ clockedIn, alreadySpun, wheelValues }: { clockedIn: boolean; alreadySpun: boolean; wheelValues?: number[] }) {
+  const values = wheelValues && wheelValues.length ? wheelValues : SPIN_WHEEL_VALUES;
+  const SEGMENTS: WheelSegment[] = values.map((v, i) => ({ key: String(i), label: `${v} 💎`, color: COLORS[i % COLORS.length] }));
   const [pending, start] = useTransition();
   const [target, setTarget] = useState<string | null>(null);
   const [trigger, setTrigger] = useState(0);

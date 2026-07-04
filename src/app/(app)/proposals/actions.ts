@@ -18,17 +18,17 @@ function sanitizeUrl(url: string): string | null {
   return base && url.startsWith(`${base}/storage/v1/object/public/uploads/`) ? url : null;
 }
 
-/** Suggested diamond reward per spec tiers, shown to the approver as a default. */
+/** Suggested diamond reward, scaled from the configured base accept reward. */
 export async function suggestedAcceptReward(category: string, impactValue: number): Promise<number> {
+  const { getRewardRuleSetting } = await import("@/lib/reward-rules");
+  const base = (await getRewardRuleSetting()).proposalAcceptedReward; // default 100
   if (category === "COST_SAVING") {
-    if (impactValue > 5000) return 500; // Boss custom above this — start high
-    if (impactValue >= 1000) return 500;
-    if (impactValue > 0) return 200;
+    if (impactValue >= 1000) return base * 5;
+    if (impactValue > 0) return base * 2;
   }
-  if (category === "REVENUE_GROWTH") return 300;
-  if (["CUSTOMER_SERVICE", "SOP_IMPROVEMENT", "RISK_PREVENTION"].includes(category)) return 200;
-  if (category === "AUTOMATION_AI") return 300;
-  return 100;
+  if (["REVENUE_GROWTH", "AUTOMATION_AI"].includes(category)) return base * 3;
+  if (["CUSTOMER_SERVICE", "SOP_IMPROVEMENT", "RISK_PREVENTION"].includes(category)) return base * 2;
+  return base;
 }
 
 /** Staff submits a proposal (goes to Department Head for first review). */

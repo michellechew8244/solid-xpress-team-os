@@ -11,7 +11,7 @@ import {
 import { logAudit } from "@/lib/audit";
 import { awardPoints } from "@/lib/points";
 import { notify } from "@/lib/notify";
-import { STREAK_MILESTONES } from "@/lib/games";
+import { getRewardRuleSetting, streakMilestones, spinPrizes, spinWheelValues } from "@/lib/reward-rules";
 
 /** Only accept photo URLs that point at our own storage bucket (or none). */
 function sanitizePhotoUrl(url: string | null | undefined): string | null {
@@ -79,9 +79,10 @@ export async function clockIn(photoUrl?: string | null, workType: string = "OFFI
     }
   }
 
-  // 🔥 Legacy check-in streak milestone bonus (idempotent per milestone via the ledger refId).
+  // 🔥 Check-in streak milestone bonus (amounts from Reward Rules; idempotent per milestone).
   const streak = await computeStreak(s.id, dateStr);
-  const bonus = STREAK_MILESTONES[streak];
+  const rewardRules = await getRewardRuleSetting();
+  const bonus = rewardRules.streakEnabled ? streakMilestones(rewardRules)[streak] : undefined;
   if (bonus) {
     const refId = `streak-${streak}`;
     const already = await prisma.pointsTransaction.findFirst({ where: { userId: s.id, refType: "STREAK", refId } });
@@ -115,13 +116,16 @@ export async function spinDailyWheel() {
   const existing = await prisma.dailySpin.findUnique({ where: { userId_date: { userId: s.id, date: dateStr } } });
   if (existing) throw new Error("You have already used today's spin. Come back tomorrow!");
 
-  const { SPIN_PRIZES, SPIN_WHEEL_VALUES } = await import("@/lib/games");
-  const total = SPIN_PRIZES.reduce((sum, p) => sum + p.weight, 0);
+  const rules = await getRewardRuleSetting();
+  if (!rules.dailySpinEnabled) throw new Error("The daily spin is currently disabled.");
+  const prizes = spinPrizes(rules);
+  const wheel = spinWheelValues(rules);
+  const total = prizes.reduce((sum, p) => sum + p.weight, 0);
   let roll = Math.random() * total;
-  let prize = SPIN_PRIZES[0].value;
-  for (const p of SPIN_PRIZES) { roll -= p.weight; if (roll <= 0) { prize = p.value; break; } }
+  let prize = prizes[0].value;
+  for (const p of prizes) { roll -= p.weight; if (roll <= 0) { prize = p.value; break; } }
   // Land on a wheel segment that shows the won value.
-  const candidates = SPIN_WHEEL_VALUES.map((v, i) => (v === prize ? i : -1)).filter((i) => i >= 0);
+  const candidates = wheel.map((v, i) => (v === prize ? i : -1)).filter((i) => i >= 0);
   const segmentIndex = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
 
   await prisma.$transaction(async (tx) => {

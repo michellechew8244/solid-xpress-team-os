@@ -59,6 +59,7 @@ export const NAV: NavGroup[] = [
       { href: "/diamonds/requests", label: "Diamond Requests", icon: "📥", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
       { href: "/diamonds/transactions", label: "Diamond Transactions", icon: "🧾" },
       { href: "/settings/diamond-authority", label: "Diamond Authority", icon: "🔐", roles: ["SUPER_ADMIN", "MANAGEMENT"] },
+      { href: "/settings/reward-rules", label: "Reward Rules", icon: "🎯", roles: ["SUPER_ADMIN", "MANAGEMENT"] },
     ],
   },
   {

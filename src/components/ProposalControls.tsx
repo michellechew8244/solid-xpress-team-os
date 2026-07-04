@@ -59,8 +59,8 @@ export function NewProposalForm({ departments }: { departments: Dept[] }) {
   );
 }
 
-export function ProposalReviewButtons({ proposalId, status, canFinal, canImplement, suggested }: {
-  proposalId: string; status: string; canFinal: boolean; canImplement: boolean; suggested: number;
+export function ProposalReviewButtons({ proposalId, status, canFinal, canImplement, suggested, implementedDefault = 300 }: {
+  proposalId: string; status: string; canFinal: boolean; canImplement: boolean; suggested: number; implementedDefault?: number;
 }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export function ProposalReviewButtons({ proposalId, status, canFinal, canImpleme
       )}
       {canImplement && status === "ACCEPTED" && (
         <button className="btn-primary px-2 py-1 text-xs" disabled={pending} onClick={() => {
-          const amt = window.prompt("Extra diamonds for implementation? (suggested: 300)", "300");
+          const amt = window.prompt(`Extra diamonds for implementation? (suggested: ${implementedDefault})`, String(implementedDefault));
           if (amt == null) return;
           const c = window.prompt("Implementation note (optional):") ?? "";
           run(() => markImplemented(proposalId, Number(amt) || 0, c));

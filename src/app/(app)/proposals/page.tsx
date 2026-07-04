@@ -6,6 +6,7 @@ import { PROPOSAL_CATEGORIES, PROPOSAL_STATUS_PILL } from "@/lib/proposals";
 import { Avatar, Card, EmptyState, PageHeader, Pill, SectionTitle, StatCard } from "@/components/ui";
 import { NewProposalForm, ProposalReviewButtons } from "@/components/ProposalControls";
 import { suggestedAcceptReward } from "./actions";
+import { getRewardRuleSetting } from "@/lib/reward-rules";
 import { requireFeature } from "@/lib/features";
 
 export default async function ProposalsPage() {
@@ -40,6 +41,7 @@ export default async function ProposalsPage() {
   for (const p of proposals) if (["ACCEPTED", "IMPLEMENTED"].includes(p.status)) tally.set(p.submittedById, (tally.get(p.submittedById) ?? 0) + 1);
   const top = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
 
+  const rewardRules = await getRewardRuleSetting();
   const suggestions = new Map<string, number>();
   for (const p of visible) suggestions.set(p.id, await suggestedAcceptReward(p.category, p.estimatedImpactValue));
 
@@ -109,7 +111,8 @@ export default async function ProposalsPage() {
                     <ProposalReviewButtons
                       proposalId={p.id} status={p.status}
                       canFinal={canFinal} canImplement={isBoss(user.role)}
-                      suggested={suggestions.get(p.id) ?? 100}
+                      suggested={suggestions.get(p.id) ?? rewardRules.proposalAcceptedReward}
+                      implementedDefault={rewardRules.proposalImplementedReward}
                     />
                   )}
                 </div>
