@@ -42,28 +42,41 @@ export function LobbyStage({ crew, total, date, checkinUrl }: { crew: CrewMember
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new Ctx();
     const master = ctx.createGain();
-    master.gain.value = 0.16;
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass"; lp.frequency.value = 900;
-    lp.connect(master); master.connect(ctx.destination);
-    // Soft evolving pad (A2 / E3 / A3).
-    [110, 164.81, 220].forEach((f, i) => {
-      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
-      const g = ctx.createGain(); g.gain.value = 0.25;
-      const lfo = ctx.createOscillator(); lfo.frequency.value = 0.05 + i * 0.03;
-      const lg = ctx.createGain(); lg.gain.value = 0.12;
-      lfo.connect(lg); lg.connect(g.gain); o.connect(g); g.connect(lp); o.start(); lfo.start();
-    });
-    // Gentle arpeggio every few seconds.
-    const scale = [440, 554.37, 659.25, 880];
+    master.gain.value = 0.22;
+    master.connect(ctx.destination);
+
+    // Upbeat looping tune — bright plucky melody (C-major pentatonic, always
+    // happy) + bouncy bassline + a light kick pulse. ~140 BPM feel.
+    const C4 = 261.63, D4 = 293.66, E4 = 329.63, G4 = 392, A4 = 440, C5 = 523.25, D5 = 587.33, E5 = 659.25, G5 = 783.99, A5 = 880;
+    const MEL = [C5, G4, A4, C5, E5, D5, C5, A4, C5, D5, E5, G5, A5, G5, E5, D5];
+    const BASS = [130.81, 0, 0, 0, 174.61, 0, 0, 0, 196.0, 0, 0, 0, 174.61, 0, 0, 0]; // C2 F2 G2 F2
+    const KICK = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
+    const stepMs = 176;
+    let step = 0;
+
+    const pluck = (freq: number, dur: number, type: OscillatorType, vol: number) => {
+      const t = ctx.currentTime;
+      const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+    };
+    const kick = () => {
+      const t = ctx.currentTime;
+      const o = ctx.createOscillator(); o.type = "sine";
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
+    };
+
     const timer = window.setInterval(() => {
-      const n = scale[Math.floor(Math.random() * scale.length)];
-      const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = n;
-      const g = ctx.createGain(); g.gain.setValueAtTime(0, ctx.currentTime);
-      g.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.05);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.6);
-      o.connect(g); g.connect(lp); o.start(); o.stop(ctx.currentTime + 1.7);
-    }, 3500);
+      const i = step % 16;
+      if (MEL[i]) pluck(MEL[i], 0.22, "triangle", 0.16);
+      if (BASS[i]) pluck(BASS[i], 0.35, "sawtooth", 0.10);
+      if (KICK[i]) kick();
+      step++;
+    }, stepMs);
     audioRef.current = { ctx, master, timer };
     setAudioOn(true);
   }
@@ -116,9 +129,15 @@ export function LobbyStage({ crew, total, date, checkinUrl }: { crew: CrewMember
           const delay = seed(m.id, 13) * 2;
           return (
             <div key={m.id} className="flex flex-col items-center" style={{ animation: `lobby-bob ${bob}s ease-in-out ${delay}s infinite` }}>
-              <div className="relative grid h-14 w-14 place-items-center rounded-full text-lg font-bold shadow-[0_0_18px_rgba(129,140,248,0.6)] ring-2 ring-white/30" style={{ background: m.color }}>
-                {m.photo ? <img src={m.photo} alt={m.name} className="h-full w-full rounded-full object-cover" /> : m.name.slice(0, 2).toUpperCase()}
-                {m.late && <span className="absolute -right-1 -top-1 text-xs" title="Late">⏰</span>}
+              <div className="relative grid h-16 w-16 place-items-center rounded-full text-lg font-bold shadow-[0_0_20px_rgba(129,140,248,0.7)] ring-2 ring-white/40" style={{ background: m.color }}>
+                {/* Cute unique cartoon avatar seeded by the person (falls back to the colored circle). */}
+                <img
+                  src={`https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(m.id)}&backgroundType=gradientLinear`}
+                  alt={m.name}
+                  className="h-full w-full rounded-full"
+                  loading="lazy"
+                />
+                {m.late && <span className="absolute -right-1 -top-1 text-sm" title="Late">⏰</span>}
               </div>
               <div className="mt-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">{m.name.split(" ")[0]}</div>
             </div>
