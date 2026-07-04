@@ -49,6 +49,95 @@ export async function redeemReward(rewardId: string) {
   revalidatePath("/rewards");
 }
 
+/** Reward store item management (Boss / HR Admin only). */
+export type RewardResult = { ok: true } | { ok: false; error: string };
+
+const REWARD_CATEGORIES = [
+  "CASH_VOUCHER", "MEAL_VOUCHER", "EXTRA_LEAVE", "COMPANY_GIFT", "TRAINING",
+  "LUCKY_DRAW", "MYSTERY_GIFT", "ANNUAL_DINNER", "PROMOTION_BADGE", "RECOGNITION",
+];
+
+type RewardInput = {
+  name: string;
+  description: string;
+  category: string;
+  pointsCost: number;
+  stock: number;
+  imageEmoji: string;
+  isActive: boolean;
+};
+
+function validateReward(input: RewardInput): string | null {
+  if (!input.name.trim()) return "Name is required.";
+  if (!REWARD_CATEGORIES.includes(input.category)) return "Please choose a valid category.";
+  if (!Number.isFinite(input.pointsCost) || input.pointsCost < 0) return "Diamond cost must be 0 or more.";
+  if (!Number.isInteger(input.stock) || input.stock < -1) return "Stock must be -1 (unlimited) or a number ≥ 0.";
+  if (!input.imageEmoji.trim()) return "Please pick an emoji/icon.";
+  return null;
+}
+
+export async function createReward(input: RewardInput): Promise<RewardResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Unauthorized" };
+  if (!canManageRewards(session.role)) return { ok: false, error: "Only Boss / HR Admin can manage the reward store." };
+  const err = validateReward(input);
+  if (err) return { ok: false, error: err };
+  await prisma.reward.create({
+    data: {
+      name: input.name.trim(),
+      description: input.description.trim() || null,
+      category: input.category,
+      pointsCost: Math.round(input.pointsCost),
+      stock: input.stock,
+      imageEmoji: input.imageEmoji.trim(),
+      isActive: input.isActive,
+    },
+  });
+  revalidatePath("/rewards");
+  return { ok: true };
+}
+
+export async function updateReward(id: string, input: RewardInput): Promise<RewardResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Unauthorized" };
+  if (!canManageRewards(session.role)) return { ok: false, error: "Only Boss / HR Admin can manage the reward store." };
+  const err = validateReward(input);
+  if (err) return { ok: false, error: err };
+  const existing = await prisma.reward.findUnique({ where: { id } });
+  if (!existing) return { ok: false, error: "Reward not found." };
+  await prisma.reward.update({
+    where: { id },
+    data: {
+      name: input.name.trim(),
+      description: input.description.trim() || null,
+      category: input.category,
+      pointsCost: Math.round(input.pointsCost),
+      stock: input.stock,
+      imageEmoji: input.imageEmoji.trim(),
+      isActive: input.isActive,
+    },
+  });
+  revalidatePath("/rewards");
+  return { ok: true };
+}
+
+export async function deleteReward(id: string): Promise<RewardResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Unauthorized" };
+  if (!canManageRewards(session.role)) return { ok: false, error: "Only Boss / HR Admin can manage the reward store." };
+  // Keep redemption history intact: if anyone has ever redeemed this reward,
+  // deactivate instead of hard-deleting so past records stay valid.
+  const redemptions = await prisma.rewardRedemption.count({ where: { rewardId: id } });
+  if (redemptions > 0) {
+    await prisma.reward.update({ where: { id }, data: { isActive: false } });
+    revalidatePath("/rewards");
+    return { ok: false, error: "This reward has redemption history, so it was hidden (deactivated) instead of deleted to keep records intact." };
+  }
+  await prisma.reward.delete({ where: { id } });
+  revalidatePath("/rewards");
+  return { ok: true };
+}
+
 export async function decideRedemption(redemptionId: string, approve: boolean) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
