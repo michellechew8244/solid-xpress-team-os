@@ -1,5 +1,6 @@
-import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
+// Pure expertise data + composer — safe to import anywhere.
+// The optional Claude API call lives at the bottom behind a dynamic import so
+// no server secret or SDK code ever reaches the client bundle.
 
 /**
  * AI reply drafting + sales coaching expertise.
@@ -28,7 +29,7 @@ const INTENT_RULES: { intent: Intent; words: string[] }[] = [
   { intent: "TRANSLOADING", words: ["transload", "trans-load", "cross dock", "crossdock", "reload"] },
   { intent: "DELAY", words: ["delay", "delayed", "postpone", "rolled", "roll over", "late arrival", "congestion", "eta change"] },
   { intent: "SHIPMENT_STATUS", words: ["status", "where is", "eta", "etd", "arrived", "tracking", "container", "vessel", "update on", "when will"] },
-  { intent: "DOCUMENTS", words: ["document", "bl ", "bill of lading", "invoice copy", "packing list", "form e", "form d", "coo", "certificate", "do ", "delivery order"] },
+  { intent: "DOCUMENTS", words: ["document", "bl ", "bill of lading", "invoice copy", "packing list", "form e", "form d", "coo", "certificate", "delivery order", "d/o", "release the do", "collect the do"] },
   { intent: "PAYMENT", words: ["payment", "outstanding", "overdue", "credit", "invoice due", "statement", "soa"] },
   { intent: "NEW_LEAD", words: ["new shipment", "inquiry", "enquiry", "interested", "first time", "can you handle", "do you provide", "need shipping", "import from", "export to"] },
 ];
@@ -230,6 +231,7 @@ export function claudeConfigured(): boolean {
 export async function claudeDraft(kind: "CUSTOMER_REPLY" | "SALES_MESSAGE", userInput: string, context: string): Promise<string | null> {
   if (!claudeConfigured()) return null;
   try {
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic();
     const response = await client.messages.create({
       model: "claude-opus-4-8",
