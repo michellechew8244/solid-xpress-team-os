@@ -38,6 +38,7 @@ export const FEATURES: Record<string, FeatureDef> = {
   "daily-report":      { label: "Daily Report", icon: "📝", hrefs: ["/daily-report"] },
   "work-reports":      { label: "Work Reports", icon: "📄", hrefs: ["/work-reports"] },
   "wallet":            { label: "Diamond Wallet", icon: "💎", hrefs: ["/wallet"] },
+  "diamond-guide":     { label: "How Diamonds Work", icon: "📖", hrefs: ["/diamonds-guide"] },
   "rewards":           { label: "Reward Store", icon: "🎁", hrefs: ["/rewards"] },
   "badges":            { label: "Badge Centre", icon: "🏅", hrefs: ["/badges"] },
   "lucky-draw":        { label: "Lucky Draw", icon: "🎰", hrefs: ["/lucky-draw"] },

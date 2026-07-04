@@ -43,6 +43,7 @@ export const NAV: NavGroup[] = [
     group: "Rewards & Growth",
     items: [
       { href: "/wallet", label: "Diamond Wallet", icon: "💎" },
+      { href: "/diamonds-guide", label: "How Diamonds Work", icon: "📖" },
       { href: "/missions-hub", label: "Game Centre", icon: "🎮" },
       { href: "/pk-arena", label: "PK Arena", icon: "⚔️" },
       { href: "/rewards", label: "Reward Store", icon: "🎁" },

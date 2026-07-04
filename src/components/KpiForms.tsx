@@ -63,8 +63,13 @@ export function KpiEntryRow({
         </div>
       )}
       <div className="text-center">
-        <div className="text-xs text-ink-muted">Achv / Pts</div>
+        <div className="text-xs text-ink-muted">Achv / 💎</div>
         <div className="text-sm font-bold text-brand-700">{result ? `${result.achievementPct}% · ${result.pointsAwarded}` : "—"}</div>
+        {result ? (
+          <div className="text-[10px] text-ink-muted">{result.achievementPct}% × {kpi.pointMultiplier} = {Math.round(result.achievementPct * kpi.pointMultiplier)}{Math.round(result.achievementPct * kpi.pointMultiplier) > kpi.maxPoints ? ` → cap ${kpi.maxPoints}` : ""}</div>
+        ) : (
+          <div className="text-[10px] text-ink-muted">actual÷target × {kpi.pointMultiplier}, max {kpi.maxPoints}</div>
+        )}
       </div>
       <div>
         {locked ? (
