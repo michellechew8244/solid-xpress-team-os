@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getFeatureOverrides, navForUser } from "@/lib/features";
 import { klNow } from "@/lib/attendance";
 import { Sidebar } from "@/components/Sidebar";
+import { MobileNav } from "@/components/MobileNav";
 import { Topbar } from "@/components/Topbar";
 import { BirthdayPopup } from "@/components/BirthdayPopup";
 
@@ -41,8 +42,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             department: user.department,
           }}
         />
-        <main className="mx-auto max-w-7xl overflow-x-hidden px-4 py-6 md:px-6">{children}</main>
+        {/* Extra bottom padding on mobile so content clears the bottom tab bar. */}
+        <main className="mx-auto max-w-7xl overflow-x-hidden px-4 py-6 pb-24 md:px-6 md:pb-6">{children}</main>
       </div>
+      <MobileNav groups={groups} />
       <BirthdayPopup info={birthday} />
     </div>
   );

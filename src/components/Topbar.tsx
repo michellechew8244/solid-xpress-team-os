@@ -13,14 +13,14 @@ export async function Topbar({
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur md:px-6">
-      <div className="pl-10 md:pl-0">
-        <div className="text-xs text-ink-muted">{user.department?.name ?? "—"}</div>
-        <div className="text-sm font-semibold text-ink">{ROLE_LABELS[user.role] ?? user.role}</div>
+      <div className="min-w-0">
+        <div className="truncate text-xs text-ink-muted">{user.department?.name ?? "—"}</div>
+        <div className="truncate text-sm font-semibold text-ink">{ROLE_LABELS[user.role] ?? user.role}</div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="hidden rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 sm:block">
-          💎 {user.currentPoints.toLocaleString()} Diamonds
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 sm:px-3">
+          💎 {user.currentPoints.toLocaleString()}<span className="hidden sm:inline"> Diamonds</span>
         </div>
         <div className="hidden rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 sm:block">
           Lv.{user.officialLevel} · {growthLevelName(user.officialLevel)}
