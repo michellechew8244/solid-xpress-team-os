@@ -43,6 +43,25 @@ export async function requestUploadTicket(
   return createUploadTicket(`${subdir}/${unique}-${sanitize(filename || "file")}`);
 }
 
+/** Create a training topic/folder (managers). */
+export async function createTrainingTopic(formData: FormData) {
+  const me = await actor();
+  if (!canManageTraining(me.role)) throw new Error("Forbidden");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) throw new Error("Topic name is required.");
+  const icon = String(formData.get("icon") ?? "📁").trim() || "📁";
+  const count = await prisma.trainingTopic.count();
+  await prisma.trainingTopic.create({ data: { name, icon, description: String(formData.get("description") ?? "") || null, order: count, createdById: me.id } });
+  revalidatePath("/training");
+}
+
+export async function toggleTrainingTopic(id: string, active: boolean) {
+  const me = await actor();
+  if (!canManageTraining(me.role)) throw new Error("Forbidden");
+  await prisma.trainingTopic.update({ where: { id }, data: { isActive: active } });
+  revalidatePath("/training");
+}
+
 /** Create a new training, optionally uploading a video and/or slides deck. */
 export async function createTraining(formData: FormData) {
   const me = await actor();
@@ -54,6 +73,7 @@ export async function createTraining(formData: FormData) {
   const training = await prisma.training.create({
     data: {
       title,
+      topicId: String(formData.get("topicId") ?? "") || null,
       departmentEligibility: String(formData.get("departmentEligibility") ?? "ALL"),
       description: String(formData.get("description") ?? "") || null,
       videoLink: String(formData.get("videoLink") ?? "") || null,

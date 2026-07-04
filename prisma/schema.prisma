@@ -943,10 +943,28 @@ model PerformanceReview {
 // Training
 // ===========================================================================
 
+// Training topics/folders — managers create these so materials are filed by
+// subject (e.g. Customs Clearance, Sea Freight SOP, Safety).
+model TrainingTopic {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String   @default("📁")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  trainings   Training[]
+}
+
 model Training {
   id          String  @id @default(cuid())
   title       String
   departmentEligibility String @default("ALL")
+  // Topic/folder this training is filed under (optional).
+  topicId     String?
+  topic       TrainingTopic? @relation(fields: [topicId], references: [id])
   // External links (optional) — kept for YouTube/Drive-hosted material.
   videoLink   String?
   sopDocument String?

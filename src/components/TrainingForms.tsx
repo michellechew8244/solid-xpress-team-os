@@ -3,14 +3,45 @@
 import { useRef, useState, useTransition } from "react";
 import {
   createTraining, addTrainingMaterial, deleteTrainingMaterial, toggleTraining, submitCompletion,
-  addQuizQuestion, toggleQuizQuestion, submitQuizAttempt,
+  addQuizQuestion, toggleQuizQuestion, submitQuizAttempt, createTrainingTopic, toggleTrainingTopic,
 } from "@/app/(app)/training/actions";
 import { stageUploads } from "@/lib/upload-client";
 import { FileDropZone } from "@/components/FileDropZone";
 
 const DEPTS = ["ALL", "MKT", "SALES", "CS", "OPS", "FWD", "HAUL", "RUN", "DISP", "FIN", "HR"];
+const TOPIC_ICONS = ["📁", "📦", "🚢", "✈️", "🚚", "📋", "🛃", "⚓", "🛡️", "🤝", "💰", "🎯"];
 
-export function NewTrainingForm() {
+export function NewTopicForm() {
+  const [open, setOpen] = useState(false);
+  const [icon, setIcon] = useState("📁");
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const ref = useRef<HTMLFormElement>(null);
+  return (
+    <div>
+      <button className="btn-ghost w-full sm:w-auto" onClick={() => setOpen((o) => !o)}>📁 New Topic Folder</button>
+      {open && (
+        <form ref={ref} action={(fd) => { setErr(null); fd.set("icon", icon); start(async () => { try { await createTrainingTopic(fd); ref.current?.reset(); setIcon("📁"); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } }); }} className="card mt-3 grid gap-3 p-4">
+          <div>
+            <label className="label">Folder icon</label>
+            <div className="flex flex-wrap gap-1">{TOPIC_ICONS.map((e) => <button type="button" key={e} onClick={() => setIcon(e)} className={`rounded-lg px-2 py-1 text-lg ${icon === e ? "bg-brand-100 ring-2 ring-brand-400" : "bg-slate-50 hover:bg-slate-100"}`}>{e}</button>)}</div>
+          </div>
+          <div><label className="label">Topic name *</label><input name="name" className="input" placeholder="e.g. Customs Clearance" required /></div>
+          <div><label className="label">Description</label><input name="description" className="input" /></div>
+          {err && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{err}</div>}
+          <div className="flex gap-2"><button className="btn-primary" disabled={pending}>Create folder</button><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button></div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+export function TopicToggle({ id, active }: { id: string; active: boolean }) {
+  const [pending, start] = useTransition();
+  return <button className="text-xs text-ink-muted hover:underline" disabled={pending} onClick={() => start(() => toggleTrainingTopic(id, !active))}>{active ? "archive folder" : "restore folder"}</button>;
+}
+
+export function NewTrainingForm({ topics = [] }: { topics?: { id: string; name: string; icon: string }[] }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -26,6 +57,13 @@ export function NewTrainingForm() {
           className="card mt-3 grid gap-3 p-4 sm:grid-cols-2"
         >
           <div className="sm:col-span-2"><label className="label">Title *</label><input name="title" className="input" required /></div>
+          <div>
+            <label className="label">📁 Topic folder</label>
+            <select name="topicId" className="input" defaultValue="">
+              <option value="">— Uncategorised —</option>
+              {topics.map((t) => <option key={t.id} value={t.id}>{t.icon} {t.name}</option>)}
+            </select>
+          </div>
           <div>
             <label className="label">Department eligibility</label>
             <select name="departmentEligibility" className="input" defaultValue="ALL">{DEPTS.map((d) => <option key={d} value={d}>{d === "ALL" ? "All departments" : d}</option>)}</select>

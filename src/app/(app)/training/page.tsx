@@ -4,7 +4,7 @@ import { canApproveTasks } from "@/lib/rbac";
 import { Card, PageHeader, Pill, SectionTitle } from "@/components/ui";
 import {
   NewTrainingForm, AddMaterialForm, DeleteMaterialButton, ToggleTrainingButton, CompleteTrainingForm,
-  AddQuizQuestionForm, ToggleQuestionButton, TakeQuizForm,
+  AddQuizQuestionForm, ToggleQuestionButton, TakeQuizForm, NewTopicForm, TopicToggle,
 } from "@/components/TrainingForms";
 import { requireFeature } from "@/lib/features";
 
@@ -20,7 +20,7 @@ export default async function TrainingPage() {
   if (!user) return null;
   const canManage = canApproveTasks(user.role) || user.role === "HR_ADMIN";
 
-  const [trainings, completions] = await Promise.all([
+  const [trainings, completions, topics] = await Promise.all([
     prisma.training.findMany({
       where: canManage ? {} : { isActive: true },
       include: {
@@ -32,6 +32,7 @@ export default async function TrainingPage() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.trainingCompletion.findMany({ where: { userId: user.id } }),
+    prisma.trainingTopic.findMany({ where: canManage ? {} : { isActive: true }, orderBy: [{ order: "asc" }, { name: "asc" }] }),
   ]);
   const byId = new Map(completions.map((c) => [c.trainingId, c]));
 
@@ -39,15 +40,39 @@ export default async function TrainingPage() {
     (t) => canManage || t.departmentEligibility === "ALL" || t.departmentEligibility === user.department?.code,
   );
 
+  // Group trainings into topic folders (active topics first, then Uncategorised).
+  const topicOptions = topics.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, icon: t.icon }));
+  const groups = [
+    ...topics.map((topic) => ({ topic, items: relevant.filter((t) => t.topicId === topic.id) })),
+    { topic: null as null | (typeof topics)[number], items: relevant.filter((t) => !t.topicId || !topics.some((tp) => tp.id === t.topicId)) },
+  ].filter((g) => g.items.length > 0 || (g.topic && canManage));
+
   return (
     <>
       <PageHeader
         title="Training Centre"
         subtitle="Upskill, watch training video/slides, pass the quiz, earn diamonds"
-        action={canManage ? <NewTrainingForm /> : undefined}
+        action={canManage ? <div className="flex flex-wrap gap-2"><NewTopicForm /><NewTrainingForm topics={topicOptions} /></div> : undefined}
       />
-      <div className="grid gap-4 sm:grid-cols-2">
-        {relevant.map((t) => {
+
+      {groups.length === 0 && <div className="text-center text-sm text-ink-muted">No training assigned yet.</div>}
+
+      {groups.map((g, gi) => (
+        <section key={g.topic?.id ?? "uncat"} className={gi > 0 ? "mt-8" : ""}>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">
+              {g.topic ? `${g.topic.icon} ${g.topic.name}` : "🗂️ Uncategorised"}
+              <span className="ml-2 text-sm font-normal text-ink-muted">({g.items.length})</span>
+              {g.topic && !g.topic.isActive && <span className="ml-2 badge bg-slate-200 text-slate-500">archived</span>}
+            </h2>
+            {canManage && g.topic && <TopicToggle id={g.topic.id} active={g.topic.isActive} />}
+          </div>
+          {g.topic?.description && <p className="mb-3 -mt-2 text-xs text-ink-muted">{g.topic.description}</p>}
+          {g.items.length === 0 ? (
+            <p className="text-sm text-ink-muted">No training in this folder yet.</p>
+          ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+        {g.items.map((t) => {
           const c = byId.get(t.id);
           const video = t.materials.find((m) => m.kind === "VIDEO");
           const slides = t.materials.filter((m) => m.kind === "SLIDES");
@@ -141,10 +166,10 @@ export default async function TrainingPage() {
             </Card>
           );
         })}
-        {relevant.length === 0 && (
-          <div className="col-span-full text-center text-sm text-ink-muted">No training assigned yet.</div>
-        )}
-      </div>
+          </div>
+          )}
+        </section>
+      ))}
     </>
   );
 }
