@@ -24,6 +24,8 @@ export interface FeatureDef {
   roles?: string[];
   /** true → ALLOW override cannot open it beyond roles (page logic is role-bound). */
   denyOnly?: boolean;
+  /** Supports PARTIAL access scoped to specific items (e.g. training topic folders). */
+  scopable?: "training-topics";
 }
 
 const MGRS = ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"];
@@ -43,7 +45,7 @@ export const FEATURES: Record<string, FeatureDef> = {
   "badges":            { label: "Badge Centre", icon: "🏅", hrefs: ["/badges"] },
   "lucky-draw":        { label: "Lucky Draw", icon: "🎰", hrefs: ["/lucky-draw"] },
   "wishing-tree":      { label: "Wishing Tree", icon: "🌳", hrefs: ["/wishing-tree"] },
-  "training":          { label: "Training Centre", icon: "📚", hrefs: ["/training"] },
+  "training":          { label: "Training Centre", icon: "📚", hrefs: ["/training"], scopable: "training-topics" },
   "game-centre":       { label: "Game Centre", icon: "🎮", hrefs: ["/missions-hub"] },
   "pk-arena":          { label: "PK Arena", icon: "⚔️", hrefs: ["/pk-arena"] },
   "proposals":         { label: "Idea Bank", icon: "💡", hrefs: ["/proposals"] },
@@ -74,14 +76,16 @@ export function isBossRole(role: string) {
   return role === "SUPER_ADMIN" || role === "MANAGEMENT";
 }
 
-export type Overrides = Map<string, "ALLOW" | "DENY">;
+export type AccessLevel = "ALLOW" | "DENY" | "PARTIAL";
+export type Overrides = Map<string, AccessLevel>;
 
 export async function getFeatureOverrides(userId: string): Promise<Overrides> {
   const rows = await prisma.userFeatureAccess.findMany({ where: { userId } });
-  return new Map(rows.map((r) => [r.featureKey, r.access as "ALLOW" | "DENY"]));
+  return new Map(rows.map((r) => [r.featureKey, r.access as AccessLevel]));
 }
 
-/** Resolve access for one feature given role + per-user overrides. */
+/** Resolve access for one feature given role + per-user overrides.
+ *  PARTIAL counts as "can enter" — the page itself narrows what's visible. */
 export function hasFeatureAccess(role: string, overrides: Overrides, key: string): boolean {
   if (isBossRole(role)) return true;
   const def = FEATURES[key];
@@ -89,8 +93,25 @@ export function hasFeatureAccess(role: string, overrides: Overrides, key: string
   const ov = overrides.get(key);
   if (ov === "DENY") return false;
   const roleAllowed = !def.roles || def.roles.includes(role);
-  if (ov === "ALLOW") return def.denyOnly ? roleAllowed : true;
+  if (ov === "ALLOW" || ov === "PARTIAL") return def.denyOnly ? roleAllowed : true;
   return roleAllowed;
+}
+
+/**
+ * Training topic scope for a user: null = full access (no PARTIAL override),
+ * otherwise the Set of TrainingTopic ids they may see. Bosses are never scoped.
+ */
+export async function getTrainingTopicScope(userId: string, role: string): Promise<Set<string> | null> {
+  if (isBossRole(role)) return null;
+  const row = await prisma.userFeatureAccess.findUnique({
+    where: { userId_featureKey: { userId, featureKey: "training" } },
+  });
+  if (!row || row.access !== "PARTIAL" || !row.scopeJson) return null;
+  try {
+    const parsed = JSON.parse(row.scopeJson) as { topicIds?: unknown };
+    if (Array.isArray(parsed.topicIds)) return new Set(parsed.topicIds.filter((t): t is string => typeof t === "string"));
+  } catch { /* malformed scope = no restriction rather than lockout */ }
+  return null;
 }
 
 /** Href-prefix → feature key (longest prefix wins, so /attendance/team ≠ /attendance). */

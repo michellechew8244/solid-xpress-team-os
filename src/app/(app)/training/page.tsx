@@ -6,7 +6,7 @@ import {
   NewTrainingForm, AddMaterialForm, DeleteMaterialButton, ToggleTrainingButton, CompleteTrainingForm,
   AddQuizQuestionForm, ToggleQuestionButton, TakeQuizForm, NewTopicForm, TopicToggle,
 } from "@/components/TrainingForms";
-import { requireFeature } from "@/lib/features";
+import { requireFeature, getTrainingTopicScope } from "@/lib/features";
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -19,6 +19,8 @@ export default async function TrainingPage() {
   const user = await getCurrentUser();
   if (!user) return null;
   const canManage = canApproveTasks(user.role) || user.role === "HR_ADMIN";
+  // Partial access: null = full access, otherwise only these topic folders.
+  const topicScope = canManage ? null : await getTrainingTopicScope(user.id, user.role);
 
   const [trainings, completions, topics] = await Promise.all([
     prisma.training.findMany({
@@ -37,14 +39,18 @@ export default async function TrainingPage() {
   const byId = new Map(completions.map((c) => [c.trainingId, c]));
 
   const relevant = trainings.filter(
-    (t) => canManage || t.departmentEligibility === "ALL" || t.departmentEligibility === user.department?.code,
+    (t) =>
+      (canManage || t.departmentEligibility === "ALL" || t.departmentEligibility === user.department?.code) &&
+      // Partial access: only trainings inside the allowed topic folders.
+      (!topicScope || (t.topicId !== null && topicScope.has(t.topicId))),
   );
+  const visibleTopics = topicScope ? topics.filter((t) => topicScope.has(t.id)) : topics;
 
   // Group trainings into topic folders (active topics first, then Uncategorised).
   const topicOptions = topics.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, icon: t.icon }));
   const groups = [
-    ...topics.map((topic) => ({ topic, items: relevant.filter((t) => t.topicId === topic.id) })),
-    { topic: null as null | (typeof topics)[number], items: relevant.filter((t) => !t.topicId || !topics.some((tp) => tp.id === t.topicId)) },
+    ...visibleTopics.map((topic) => ({ topic, items: relevant.filter((t) => t.topicId === topic.id) })),
+    { topic: null as null | (typeof visibleTopics)[number], items: relevant.filter((t) => !t.topicId || !topics.some((tp) => tp.id === t.topicId)) },
   ].filter((g) => g.items.length > 0 || (g.topic && canManage));
 
   return (

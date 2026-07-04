@@ -8,6 +8,14 @@ import { saveUploadedFile, deleteUploadedFile, validateUpload, sanitize } from "
 import { createUploadTicket, deleteStoredFile, isCloudStorageConfigured, type UploadTicket } from "@/lib/storage";
 import { awardPoints } from "@/lib/points";
 import { notify } from "@/lib/notify";
+import { getTrainingTopicScope } from "@/lib/features";
+
+/** Partial-access guard: scoped staff may only act on trainings in their allowed topic folders. */
+async function assertTrainingInScope(me: { id: string; role: string }, topicId: string | null) {
+  if (canManageTraining(me.role)) return;
+  const scope = await getTrainingTopicScope(me.id, me.role);
+  if (scope && (!topicId || !scope.has(topicId))) throw new Error("You don't have access to this training.");
+}
 
 /** Who can create/manage training content (upload video/PPT, edit, retire). */
 function canManageTraining(role: string) {
@@ -220,6 +228,7 @@ export async function submitCompletion(formData: FormData) {
 
   const training = await prisma.training.findUnique({ where: { id: trainingId } });
   if (!training) throw new Error("Training not found");
+  await assertTrainingInScope(me, training.topicId);
 
   const existing = await prisma.trainingCompletion.findUnique({ where: { trainingId_userId: { trainingId, userId: me.id } } });
   if (existing?.passed) return; // already passed — idempotent
@@ -315,6 +324,7 @@ export async function submitQuizAttempt(formData: FormData) {
     prisma.quizQuestion.findMany({ where: { trainingId, isActive: true }, include: { options: true }, orderBy: { order: "asc" } }),
   ]);
   if (!training) throw new Error("Training not found");
+  await assertTrainingInScope(me, training.topicId);
   if (existing?.passed) return { score: existing.score, passed: true, correctCount: 0, totalQuestions: 0 };
   if (questions.length === 0) throw new Error("This training has no quiz questions yet.");
 

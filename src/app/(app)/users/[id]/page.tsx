@@ -10,7 +10,7 @@ import {
 } from "@/lib/user-permissions";
 import { isBoss } from "@/lib/rbac";
 import { hasOnboardingBonus } from "@/lib/onboarding-bonus";
-import { FEATURES, getFeatureOverrides } from "@/lib/features";
+import { FEATURES } from "@/lib/features";
 import { Avatar, Card, PageHeader, SectionTitle } from "@/components/ui";
 import { UserRowActions } from "@/components/UserAdminActions";
 import { OnboardingBonusControls } from "@/components/OnboardingBonusControls";
@@ -102,14 +102,25 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
           <SectionTitle>🔐 Feature Access (rights & restrictions)</SectionTitle>
           <FeatureAccessPanel
             userId={user.id}
+            topics={(await prisma.trainingTopic.findMany({ where: { isActive: true }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { id: true, name: true, icon: true } }))}
             rows={await (async (): Promise<FeatureRow[]> => {
-              const overrides = await getFeatureOverrides(user.id);
-              return Object.entries(FEATURES).map(([key, def]) => ({
-                key, label: def.label, icon: def.icon,
-                roleDefault: !def.roles || def.roles.includes(user.role),
-                override: overrides.get(key) ?? null,
-                denyOnly: Boolean(def.denyOnly),
-              }));
+              const rows = await prisma.userFeatureAccess.findMany({ where: { userId: user.id } });
+              const byKey = new Map(rows.map((r) => [r.featureKey, r]));
+              return Object.entries(FEATURES).map(([key, def]) => {
+                const ov = byKey.get(key);
+                let scopeTopicIds: string[] = [];
+                if (ov?.access === "PARTIAL" && ov.scopeJson) {
+                  try { scopeTopicIds = (JSON.parse(ov.scopeJson) as { topicIds?: string[] }).topicIds ?? []; } catch { /* ignore */ }
+                }
+                return {
+                  key, label: def.label, icon: def.icon,
+                  roleDefault: !def.roles || def.roles.includes(user.role),
+                  override: (ov?.access as FeatureRow["override"]) ?? null,
+                  denyOnly: Boolean(def.denyOnly),
+                  scopable: Boolean(def.scopable),
+                  scopeTopicIds,
+                };
+              });
             })()}
           />
         </Card>

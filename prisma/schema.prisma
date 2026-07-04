@@ -560,7 +560,8 @@ model UserFeatureAccess {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   featureKey String
-  access     String   // ALLOW | DENY
+  access     String   // ALLOW | DENY | PARTIAL (scoped by scopeJson)
+  scopeJson  String?  // PARTIAL scope, e.g. {"topicIds":["..."]} for training
   updatedBy  String?
   updatedAt  DateTime @default(now()) @updatedAt
 
