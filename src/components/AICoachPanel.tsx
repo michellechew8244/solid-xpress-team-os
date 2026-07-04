@@ -5,6 +5,16 @@ import { runAnalysis } from "@/app/(app)/ai-performance-coach/actions";
 
 type Option = { id: string; name: string };
 
+export function CopyTextButton({ text, small }: { text: string; small?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className={small ? "btn-ghost px-2 py-0.5 text-[11px]" : "btn-primary px-3 py-1 text-xs"}
+      onClick={async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+    >{copied ? "Copied ✓" : "📋 Copy"}</button>
+  );
+}
+
 export function AICoachPanel({ month, canBoss, canManage, departments, people }: {
   month: string; canBoss: boolean; canManage: boolean; departments: Option[]; people: Option[];
 }) {
@@ -70,8 +80,11 @@ export function AICoachPanel({ month, canBoss, canManage, departments, people }:
       </div>
       {err && <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{err}</div>}
       {output && (
-        <div className="mt-4 whitespace-pre-wrap rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 text-sm leading-relaxed text-ink">
-          {output}
+        <div className="mt-4">
+          <div className="whitespace-pre-wrap rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 text-sm leading-relaxed text-ink">
+            {output}
+          </div>
+          <div className="mt-2"><CopyTextButton text={output} /></div>
         </div>
       )}
     </div>

@@ -15,7 +15,7 @@ import { collectedGPForUser } from "./commission";
  * promotion; those stay with authorised humans.
  */
 
-export const DISCLAIMER = "\n\n—\n_AI analysis based on app data as of now. Facts above come from recorded figures; suggestions are advisory. Please review before acting — final decisions stay with authorised approvers._";
+export const DISCLAIMER = "\n\n_Based on recorded app data — review before acting; final decisions stay with approvers._";
 
 const pct = (n: number) => `${Math.round(n)}%`;
 const rm = (n: number) => `RM ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;

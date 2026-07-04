@@ -4,7 +4,7 @@ import { isBoss } from "@/lib/rbac";
 import { currentPeriod } from "@/lib/enums";
 import { dateTime } from "@/lib/format";
 import { Card, PageHeader, SectionTitle } from "@/components/ui";
-import { AICoachPanel } from "@/components/AICoachPanel";
+import { AICoachPanel, CopyTextButton } from "@/components/AICoachPanel";
 
 export default async function AICoachPage() {
   const me = await getCurrentUser();
@@ -45,6 +45,7 @@ export default async function AICoachPage() {
               <details key={r.id} className="rounded-lg border border-slate-100 p-2">
                 <summary className="cursor-pointer text-sm font-semibold">{r.analysisType} · {r.month} <span className="text-xs font-normal text-ink-muted">· {dateTime(r.createdAt)}</span></summary>
                 <div className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-ink-soft">{r.outputText}</div>
+                <div className="mt-1"><CopyTextButton text={r.outputText} small /></div>
               </details>
             ))}
           </div>

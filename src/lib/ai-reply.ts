@@ -57,17 +57,17 @@ export type Tone = "PROFESSIONAL" | "FRIENDLY" | "APOLOGETIC";
 const SIGN_OFF = "\n\nBest regards,\n{yourName}\nSolid Xpress M Sdn Bhd";
 
 const REPLY_BODIES: Record<Intent, string> = {
-  RATE_INQUIRY: "Thank you for your inquiry. To prepare an accurate quotation, kindly confirm:\n• Shipment mode (sea / air / land)\n• POL and POD\n• Commodity and HS code if known\n• Volume / weight / container type\n• Cargo ready date\n• Incoterm (EXW / FOB / CIF...)\n\nOnce we have these details, our team will revert with our best rate within one working day.",
-  SHIPMENT_STATUS: "Thank you for checking with us. The latest status of your shipment {jobNo} is: {status}.\nCurrent ETA/ETD: {etaEtd}.\nNext step: {nextStep}.\n\nWe are monitoring the shipment closely and will update you proactively if anything changes.",
-  CUSTOMS: "Thank you for your inquiry. We are checking the customs requirement for {commodity / jobNo} with our forwarding & declaration team — including the HS code, permit requirement and duty/tax treatment.\n\nWe will update you with a clear answer by {time}. If the shipment is urgent, please let us know so we can prioritise it.",
-  CLOSING_DATE: "Kindly note that the closing date for {vessel / jobNo} is {closingDate}.\n\nTo avoid missing the vessel, please provide the pending documents/cargo by {deadline}. We will monitor the cut-off closely from our side and alert you of any change.",
-  DOCUMENTS: "Thank you for your message. Regarding the documents for {jobNo}:\n{documentStatus}\n\nPlease let us know if you need any additional copies or amendments — we will arrange them promptly.",
-  COMPLAINT: "Thank you for bringing this to our attention, and we sincerely apologise for the inconvenience caused.\n\nWe take this seriously. Here is what we are doing:\n1. We are investigating {issue} immediately.\n2. {ownerName} will personally follow up and update you by {time}.\n3. We will put a preventive step in place so this does not recur.\n\nThank you for your patience — we value your support and will make this right.",
-  DELAY: "We would like to update you that {jobNo} is affected by {cause}. The revised timeline is {newTimeline}.\n\nThis is beyond our control, but we are actively monitoring and pushing for the earliest possible resolution. We will keep you updated at every change. We apologise for the inconvenience and appreciate your understanding.",
-  NEW_LEAD: "Thank you for reaching out to Solid Xpress! We would be glad to assist with your shipment.\n\nTo advise the best solution and rate, kindly share:\n• Shipment mode (sea / air / land)\n• POL and POD\n• Commodity\n• Volume / weight\n• Cargo ready date\n• Any permit concern\n\nOur team will review and come back to you within one working day with a tailored proposal.",
-  PAYMENT: "Gentle reminder regarding invoice {invoiceNo} ({amount}) which is due on {dueDate}.\n\nKindly arrange payment at your convenience, or let us know if the payment has already been made so we can update our records. If there is any issue with the invoice, please contact us and we will resolve it quickly.",
-  TRANSLOADING: "Thank you for your instruction on the transloading shipment {jobNo}.\n\nCurrent status: {status}. Warehouse/transport coordination: {coordination}. We will send you photo/document proof once completed and keep you updated on timing at each step.",
-  GENERAL: "Thank you for your message. We have noted your request regarding {topic} and our team is looking into it.\n\nWe will update you by {time}. Please let us know if there is anything urgent in the meantime.",
+  RATE_INQUIRY: "Thank you for your inquiry. To quote accurately, kindly confirm:\n• Mode (sea / air / land)\n• POL / POD\n• Commodity\n• Volume / weight\n• Cargo ready date\n\nWe will revert with our best rate within one working day.",
+  SHIPMENT_STATUS: "Update on {jobNo}: {status}.\nETA/ETD: {etaEtd}. Next step: {nextStep}.\n\nWe are monitoring closely and will update you if anything changes.",
+  CUSTOMS: "Thank you for your inquiry. We are checking the HS code, permit and duty/tax for {commodity / jobNo} with our forwarding team.\n\nWe will confirm by {time}. Let us know if it is urgent.",
+  CLOSING_DATE: "Closing date for {vessel / jobNo} is {closingDate}.\n\nPlease provide the pending documents/cargo by {deadline} to avoid missing the vessel. We will alert you of any change.",
+  DOCUMENTS: "Regarding the documents for {jobNo}: {documentStatus}.\n\nLet us know if you need copies or amendments — we will arrange promptly.",
+  COMPLAINT: "We sincerely apologise for the inconvenience. We are investigating {issue} now and {ownerName} will update you by {time} with the outcome and the preventive step we are taking.\n\nThank you for your patience — we will make this right.",
+  DELAY: "{jobNo} is affected by {cause} (outside our control). Revised timeline: {newTimeline}.\n\nWe are monitoring closely and will update you at every change. Apologies for the inconvenience.",
+  NEW_LEAD: "Thank you for reaching out! To advise the best solution, kindly share:\n• Mode (sea / air / land)\n• POL / POD\n• Commodity\n• Volume / weight\n• Ready date\n\nWe will revert within one working day.",
+  PAYMENT: "Gentle reminder: invoice {invoiceNo} ({amount}) is due {dueDate}.\n\nKindly arrange payment, or let us know if it is already made or if anything on the invoice needs fixing.",
+  TRANSLOADING: "Update on transloading {jobNo}: {status}.\n\nWe will send photo/document proof once completed and keep you posted at each step.",
+  GENERAL: "Thank you for your message. We have noted your request on {topic} and will update you by {time}.\n\nLet us know if it is urgent.",
 };
 
 const TONE_OPENERS: Record<Tone, string> = {
@@ -80,7 +80,7 @@ const TONE_OPENERS: Record<Tone, string> = {
 export function composeReply(message: string, tone: Tone = "PROFESSIONAL"): { intent: Intent; draft: string; tips: string[] } {
   const intent = detectIntent(message);
   const draft = TONE_OPENERS[tone] + REPLY_BODIES[intent] + SIGN_OFF;
-  const tips = REPLY_TIPS[intent] ?? [];
+  const tips = (REPLY_TIPS[intent] ?? []).slice(0, 2);
   return { intent, draft, tips };
 }
 
@@ -240,6 +240,7 @@ export async function claudeDraft(kind: "CUSTOMER_REPLY" | "SALES_MESSAGE", user
       system: [
         "You draft professional messages for staff of Solid Xpress M Sdn Bhd, a Malaysian freight forwarder (sea/air/land freight, customs clearance K1/K2/K3/K8/ZB, haulage, transloading).",
         "Rules: NEVER invent rates, dates, duty amounts, clearance times or promises — use {placeholders} like {rate} or {date} for anything not stated in the input. Match Malaysian business English. Be warm, clear and concrete. End customer messages with a courteous sign-off from Solid Xpress. Output ONLY the draft message, no preamble or explanation.",
+        "LENGTH: keep it SHORT and precise — under 100 words, short sentences, no filler phrases, maximum one short bullet list. Busy customers read on their phones.",
         kind === "SALES_MESSAGE" ? "This is a sales follow-up/closing message: add value, use honest urgency only, make the next step small and easy." : "This is a customer-service reply: acknowledge, state the concrete action being taken, give a specific update time placeholder.",
       ].join("\n"),
       messages: [{ role: "user", content: `${context}\n\n---\nDraft a reply to this:\n${userInput}` }],
