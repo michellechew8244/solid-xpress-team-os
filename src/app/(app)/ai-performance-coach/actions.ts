@@ -6,7 +6,7 @@ import { isBoss } from "@/lib/rbac";
 import {
   generateCompanyPerformanceAnalysis, generateDepartmentPerformanceAnalysis,
   generateStaffPerformanceAnalysis, generateCoachingSuggestion,
-  generateMonthlyBossReport, detectPerformanceRisk,
+  generateMonthlyBossReport, detectPerformanceRisk, generateKPISettingAdvice,
 } from "@/lib/ai-coach";
 import { currentPeriod } from "@/lib/enums";
 
@@ -32,6 +32,12 @@ export async function runAnalysis(fd: FormData): Promise<AIResult> {
       case "RISK":
         if (!boss && s.role !== "FINANCE_ADMIN") return { ok: false, error: "Risk detection is for Boss / Finance." };
         return { ok: true, text: await detectPerformanceRisk(month, s.id) };
+      case "KPI_ADVICE": {
+        const deptId = targetId || s.departmentId || "";
+        if (!boss && !(head && deptId === s.departmentId) && s.role !== "HR_ADMIN") return { ok: false, error: "You can only get KPI advice for your own department." };
+        if (!deptId) return { ok: false, error: "Pick a department." };
+        return { ok: true, text: await generateKPISettingAdvice(deptId, month, s.id) };
+      }
       case "DEPARTMENT": {
         const deptId = targetId || s.departmentId || "";
         if (!boss && !(head && deptId === s.departmentId) && s.role !== "HR_ADMIN") return { ok: false, error: "You can only analyse your own department." };

@@ -235,7 +235,91 @@ export async function detectPerformanceRisk(month = currentPeriod(), generatedBy
   return text;
 }
 
-/** 7. Sales commission risk brief for one user. */
+/** 7. KPI-setting expertise advisor: audits a department's KPI setup and
+ *  recommends targets grounded in the last 3 months of actuals + freight-
+ *  forwarding best practice. */
+export async function generateKPISettingAdvice(departmentId: string, month = currentPeriod(), generatedBy = "system"): Promise<string> {
+  const dept = await prisma.department.findUnique({ where: { id: departmentId } });
+  if (!dept) return "Department not found.";
+
+  // Last 3 periods for actuals-grounded target suggestions.
+  const [y, m] = month.split("-").map(Number);
+  const periods: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(Date.UTC(y, (m || 1) - 1 - i, 1));
+    periods.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+
+  const [kpis, results, position, goal, memberCount] = await Promise.all([
+    prisma.kPI.findMany({ where: { departmentId, status: "ACTIVE" } }),
+    prisma.kPIResult.findMany({ where: { period: { in: periods }, kpi: { departmentId } }, select: { kpiId: true, achievementPct: true } }),
+    prisma.positionKPI.findFirst({ where: { departmentId, isActive: true } }),
+    prisma.departmentGoal.findUnique({ where: { departmentId_period: { departmentId, period: month } } }),
+    prisma.user.count({ where: { departmentId, isActive: true, role: { notIn: ["SUPER_ADMIN", "MANAGEMENT"] } } }),
+  ]);
+
+  // Best-practice KPI categories per department type (freight forwarding).
+  const name = dept.name.toLowerCase();
+  const expected: string[] =
+    name.includes("sales") ? ["GP achievement", "New customers", "Quotation follow-up", "Collection support", "Retention"]
+    : name.includes("customer") || name === "cs" ? ["Job volume (60/staff)", "Inquiry response time", "Existing customer service", "New lead handling", "Customs/closing follow-up", "Update punctuality", "Handover accuracy"]
+    : name.includes("operation") ? ["Job volume (80/staff)", "Booking coordination", "Milestone updates", "Closing/ETA monitoring", "Exception handling", "Zero costly mistakes"]
+    : name.includes("forwarding") || name.includes("declaration") ? ["Job volume (120/staff)", "Declaration accuracy", "Permit speed", "HS/duty checking", "Release efficiency", "Zero penalties"]
+    : name.includes("finance") || name.includes("account") ? ["Billing timeliness", "Short-billing control", "Cost accuracy", "Collection follow-up", "Month-end closing"]
+    : ["Job/task volume", "Accuracy", "Speed/SLA", "Cost control", "Teamwork", "Improvement proposals"];
+
+  // Audit existing KPIs.
+  const totalWeight = kpis.reduce((s, k) => s + k.weightage, 0);
+  const avgByKpi = new Map<string, number[]>();
+  for (const r of results) { (avgByKpi.get(r.kpiId) ?? avgByKpi.set(r.kpiId, []).get(r.kpiId)!).push(r.achievementPct); }
+  const kpiLines = kpis.map((k) => {
+    const vals = avgByKpi.get(k.id) ?? [];
+    const avg = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+    let verdict = "no results yet — set a first-month baseline target and adjust after one cycle";
+    if (avg !== null) {
+      if (avg >= 115) verdict = `avg ${avg}% — too easy; raise the target ~${Math.round((avg - 100))}% so 100% means real stretch`;
+      else if (avg >= 85) verdict = `avg ${avg}% — well calibrated; keep the target, tighten only if it stays >110% for 2 more months`;
+      else if (avg >= 60) verdict = `avg ${avg}% — stretch is high; check whether it's a capability gap (coach) or an unrealistic target (reduce ~10-15%)`;
+      else verdict = `avg ${avg}% — demotivating; a target nobody reaches stops driving behaviour. Cut it to ~${Math.round((avg * 1.15))}% of current and rebuild momentum`;
+    }
+    return `- **${k.name}** (weight ${k.weightage}, target ${k.targetValue}${k.unit ? ` ${k.unit}` : ""}): ${verdict}`;
+  });
+
+  const covered = kpis.map((k) => k.name.toLowerCase());
+  const missing = expected.filter((e) => !covered.some((c) => e.toLowerCase().split(" ")[0] && c.includes(e.toLowerCase().split(" ")[0].replace(/[^a-z]/g, ""))));
+
+  const lines = [
+    `## 🎯 KPI Setting Advice — ${dept.name} (${month})`,
+    ``,
+    `**Current setup (facts):** ${kpis.length} active KPIs · combined weight ${totalWeight} · ${memberCount} active staff` +
+      (position ? ` · position template "${position.name}" (min ${position.minJobTarget} jobs/month)` : " · ⚠️ no position template linked") +
+      (goal ? ` · month goal set (${goal.jobVolumeTarget} jobs)` : " · ⚠️ no department goal set for this month"),
+    ``,
+    kpis.length === 0 ? `**No KPIs defined yet.** Start with 4–6 KPIs from the best-practice list below — more than 8 dilutes focus.` : `**KPI-by-KPI audit (grounded in the last 3 months of results):**\n${kpiLines.join("\n")}`,
+    ``,
+    missing.length ? `**Best-practice areas not yet covered:** ${missing.join(" · ")}` : `**Coverage:** all core best-practice areas for this department type are covered. ✅`,
+    ``,
+    `**Expert principles for good KPI setting (freight forwarding):**`,
+    `1. **SMART + controllable** — staff must be able to influence the number by their own actions (e.g. "shipment updates sent on time %", not "port congestion days").`,
+    `2. **Balance volume with quality** — every volume KPI (jobs handled) needs a paired accuracy/complaint KPI, or you reward careless speed.`,
+    `3. **Set targets from actuals** — target ≈ recent 3-month average × 1.10 for growth KPIs; ≥95–100% for accuracy/compliance KPIs. Never guess.`,
+    `4. **Weight what matters** — the top 2 KPIs should carry ≥50% of total weight; a 5%-weight KPI won't change behaviour.`,
+    `5. **Monthly rhythm** — review in week 1, mid-month check-in, score in week 4. A KPI nobody discusses is decoration.`,
+    `6. **Link to money and growth** — this app already links KPI → diamonds → bonus pool → commission → promotion; make sure every staff member can explain that chain for their own KPIs.`,
+    ``,
+    `**Suggested next actions:**`,
+    ...(goal ? [] : [`- Set ${dept.name}'s job volume & proposal targets for ${month} in the Department KPI Centre.`]),
+    ...(position ? [] : [`- Link a Position KPI template to this department in Position KPI Setup so job-volume banding applies.`]),
+    ...(kpis.length > 8 ? [`- Trim to the 6–8 highest-impact KPIs; merge overlapping ones.`] : []),
+    ...(missing.length ? [`- Add a KPI for: ${missing[0]}.`] : []),
+    `- Re-run this advice next month — recommendations recalibrate automatically as results come in.`,
+  ];
+  const text = lines.filter(Boolean).join("\n") + DISCLAIMER;
+  await log("KPI_ADVICE", month, text, generatedBy, { departmentId });
+  return text;
+}
+
+/** 8. Sales commission risk brief for one user. */
 export async function generateCommissionRiskBrief(userId: string, month = currentPeriod()): Promise<string> {
   const gp = await collectedGPForUser(userId, month);
   return [

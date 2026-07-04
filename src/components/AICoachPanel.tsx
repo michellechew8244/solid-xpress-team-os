@@ -20,11 +20,12 @@ export function AICoachPanel({ month, canBoss, canManage, departments, people }:
     { key: "BOSS_MONTHLY", label: "📊 Monthly boss report", who: "boss" },
     { key: "RISK", label: "🚨 Risk detection (billing / commission / deductions)", who: "boss" },
     { key: "DEPARTMENT", label: "🏬 Department analysis", who: "manager" },
+    { key: "KPI_ADVICE", label: "🎯 KPI setting advice (expertise + your data)", who: "manager" },
     { key: "COACHING", label: "🎓 Coaching message draft", who: "manager" },
     { key: "STAFF", label: "👤 My performance analysis", who: "all" },
   ];
   const visible = TYPES.filter((t) => t.who === "all" || (t.who === "boss" && canBoss) || (t.who === "manager" && canManage));
-  const needsDept = type === "DEPARTMENT";
+  const needsDept = type === "DEPARTMENT" || type === "KPI_ADVICE";
   const needsPerson = type === "COACHING" || (type === "STAFF" && canManage);
 
   return (
