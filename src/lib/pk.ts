@@ -14,6 +14,10 @@ export const PK_METRICS: Record<string, string> = {
   PROPOSALS: "💡 Accepted proposals",
   BADGES: "🏅 Badges earned",
   TASK_COMPLETION: "✅ Tasks completed",
+  JOB_VOLUME: "📦 Valid jobs handled",
+  JOB_QUALITY: "🎯 Job quality (volume × accuracy)",
+  ZERO_MISTAKE: "🛡️ Zero-mistake jobs",
+  COLLECTED_GP: "💵 Collected GP (sales)",
 };
 
 export interface Standing {
@@ -53,6 +57,19 @@ async function metricByUser(metricType: string, from: Date, to: Date): Promise<M
   } else if (metricType === "TASK_COMPLETION") {
     const rows = await prisma.task.groupBy({ by: ["assigneeId"], where: { status: "COMPLETED", updatedAt: { gte: from, lte: to } }, _count: true });
     for (const r of rows) if (r.assigneeId) map.set(r.assigneeId, r._count);
+  } else if (metricType === "JOB_VOLUME") {
+    const rows = await prisma.jobHandlingRecord.groupBy({ by: ["userId"], where: { isValidForKPI: true, status: { in: ["COMPLETED", "IN_PROGRESS"] }, createdAt: { gte: from, lte: to } }, _count: true });
+    for (const r of rows) map.set(r.userId, r._count);
+  } else if (metricType === "JOB_QUALITY") {
+    // Volume weighted by average quality — job-volume PK must include quality to avoid careless work (fairness rule 6).
+    const rows = await prisma.jobHandlingRecord.groupBy({ by: ["userId"], where: { isValidForKPI: true, status: { in: ["COMPLETED", "IN_PROGRESS"] }, createdAt: { gte: from, lte: to } }, _count: true, _avg: { qualityScore: true } });
+    for (const r of rows) map.set(r.userId, Math.round(r._count * ((r._avg.qualityScore ?? 100) / 100)));
+  } else if (metricType === "ZERO_MISTAKE") {
+    const rows = await prisma.jobHandlingRecord.groupBy({ by: ["userId"], where: { isValidForKPI: true, errorCount: 0, status: "COMPLETED", createdAt: { gte: from, lte: to } }, _count: true });
+    for (const r of rows) map.set(r.userId, r._count);
+  } else if (metricType === "COLLECTED_GP") {
+    const rows = await prisma.financeRecord.findMany({ where: { paymentCollected: true, invoiceIssued: true, grossProfit: { gt: 0 }, createdAt: { gte: from, lte: to }, salespersonId: { not: null } }, select: { salespersonId: true, grossProfit: true } });
+    for (const r of rows) map.set(r.salespersonId!, Math.round((map.get(r.salespersonId!) ?? 0) + r.grossProfit));
   }
   return map;
 }

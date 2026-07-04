@@ -1119,6 +1119,10 @@ model PenaltyRule {
   id           String  @id @default(cuid())
   name         String
   departmentId String? // null = applies to all departments
+  // Deduction category: ATTENDANCE, TASK_DISCIPLINE, CUSTOMER_SERVICE,
+  // OPERATION_MISTAKE, FORWARDING_MISTAKE, FINANCE_MISTAKE, SALES_MISTAKE,
+  // HANDOVER_MISTAKE, DOCUMENTATION_MISTAKE, INTEGRITY
+  category     String  @default("TASK_DISCIPLINE")
   description  String?
   deductionPoints Int  @default(0) // positive number; applied as a negative transaction
   // Severity: LOW, MEDIUM, HIGH, CRITICAL
@@ -1317,4 +1321,293 @@ model UserLevelMission {
   updatedAt    DateTime @default(now()) @updatedAt
 
   @@unique([userId, missionId])
+}
+
+// ===========================================================================
+// Company-performance-linked KPI system: Company Goal -> Department Goal ->
+// Individual KPI -> Job Handling -> Score -> Diamonds/Commission/Bonus.
+// ===========================================================================
+
+// Owner-set targets for a period ("2026" year or "2026-07" month).
+model CompanyGoal {
+  id         String @id @default(cuid())
+  period     String @unique // "2026" (annual) | "2026-Q3" | "2026-07" (monthly)
+  periodType String @default("MONTH") // YEAR | QUARTER | MONTH
+
+  revenueTarget        Float @default(0)
+  gpTarget             Float @default(0)
+  gpMarginTargetPct    Float @default(0)
+  collectionTarget     Float @default(0)
+  newCustomerTarget    Int   @default(0)
+  retentionTargetPct   Float @default(90)
+  satisfactionTargetPct Float @default(90)
+  errorReductionTargetPct Float @default(95) // operation accuracy target
+  shortBillingControlTargetPct Float @default(100)
+  onTimeBillingTargetPct Float @default(95)
+  proposalAcceptedTarget Int  @default(0)
+  attendanceTargetPct   Float @default(95)
+  departmentScoreTarget Float @default(80)
+  companyScoreTarget    Float @default(80)
+
+  rewardBudgetPct     Float @default(2)
+  commissionBudgetPct Float @default(3)
+  bonusPoolPct        Float @default(2)
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+// Monthly actuals + the computed company score/grade/multiplier. Actuals for
+// revenue/GP/collection/proposals/attendance are auto-derived; satisfaction &
+// accuracy can be entered by Boss/Finance. Boss approves the final score.
+model CompanyPerformance {
+  id     String @id @default(cuid())
+  period String @unique // "2026-07"
+
+  revenueActual    Float @default(0)
+  gpActual         Float @default(0)
+  collectionActual Float @default(0)
+  satisfactionPct  Float @default(0)
+  accuracyPct      Float @default(0)
+  shortBillingControlPct Float @default(0)
+  attendancePct    Float @default(0)
+  proposalCount    Int   @default(0)
+
+  score      Float  @default(0)
+  grade      String?
+  multiplier Float  @default(0)
+  breakdownJson String? // per-component achievement for transparency
+
+  status     String @default("DRAFT") // DRAFT | APPROVED
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+}
+
+// Department targets for a month, broken down from the company goal.
+model DepartmentGoal {
+  id           String @id @default(cuid())
+  departmentId String
+  period       String // "2026-07"
+
+  jobVolumeTarget      Int   @default(0) // valid jobs for the whole department
+  revenueContributionTarget Float @default(0)
+  gpContributionTarget Float @default(0)
+  kpiAchievementTargetPct Float @default(100)
+  accuracyTargetPct    Float @default(95)
+  speedTargetPct       Float @default(90) // SLA / on-time handling
+  costControlTarget    Float @default(0)
+  proposalTarget       Int   @default(1)
+  notes                String?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([departmentId, period])
+}
+
+// Computed department score for a month (formula weights in lib/performance).
+model DepartmentPerformance {
+  id           String @id @default(cuid())
+  departmentId String
+  period       String
+
+  kpiScore        Float @default(0) // dept KPI achievement (50%)
+  jobVolumeScore  Float @default(0) // job volume / SLA (20%)
+  accuracyScore   Float @default(0) // mistake control (15%)
+  teamworkScore   Float @default(0) // cross-dept teamwork (5%)
+  attendanceScore Float @default(0) // discipline (5%)
+  proposalScore   Float @default(0) // improvement contribution (5%)
+
+  score      Float  @default(0)
+  grade      String?
+  multiplier Float  @default(0)
+  status     String @default("DRAFT") // DRAFT | APPROVED
+  approvedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([departmentId, period])
+}
+
+// KPI template per position: weights, minimum job target with score banding,
+// diamond reward/deduction schemes, commission & PK eligibility.
+model PositionKPI {
+  id           String  @id @default(cuid())
+  name         String  @unique // "Customer Service", "Operation", "Forwarding / Declaration", "Sales", "Finance"
+  departmentId String? // optional link to a department
+  description  String?
+
+  minJobTarget Int @default(0)   // 100% band (60 CS / 80 Ops / 120 Fwd)
+  zeroBandBelow Int @default(0)  // below this many jobs -> 0% volume score
+  cap110At     Int @default(0)   // up to this many jobs -> 110%
+  volumeCapPct Float @default(120)
+
+  weightsJson       String? // { "Component": weightPct, ... }
+  rewardRulesJson   String? // [{ label, diamonds }]
+  deductionRulesJson String? // [{ label, diamonds }]
+  commissionEligible Boolean @default(false)
+  pkEligible         Boolean @default(true)
+  isActive           Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+// One row per job actually handled by one staff member in a month. Only
+// COMPLETED/IN_PROGRESS rows with isValidForKPI=true count toward the target.
+model JobHandlingRecord {
+  id           String  @id @default(cuid())
+  userId       String
+  departmentId String?
+  jobNo        String
+  customerName String?
+  jobType      String  // e.g. EXISTING_CUSTOMER_SHIPMENT, NEW_LEAD_INQUIRY, CUSTOMS_INQUIRY, K1_DECLARATION...
+  serviceType  String? // SEA | AIR | LAND | TRANSLOADING | ...
+  jobMonth     String  // "2026-07"
+  handledRole  String? // CS | OPERATION | FORWARDING | ...
+  status       String  @default("OPEN") // OPEN | IN_PROGRESS | COMPLETED | CANCELLED | EXCLUDED_FROM_KPI
+  startedAt    DateTime?
+  completedAt  DateTime?
+  isValidForKPI Boolean @default(true)
+  qualityScore Float   @default(100)
+  errorCount   Int     @default(0)
+  customerImpact String? // NONE | MINOR | MAJOR
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  // Anti-duplicate guard: one person cannot log the same job+type twice a month.
+  @@unique([userId, jobNo, jobType, jobMonth])
+  @@index([userId, jobMonth])
+  @@index([departmentId, jobMonth])
+}
+
+// Sales commission on COLLECTED gross profit, with finance confirmation.
+model CommissionRecord {
+  id       String @id @default(cuid())
+  userId   String
+  period   String // "2026-07"
+
+  gpTarget       Float @default(0)
+  gpCollected    Float @default(0)
+  achievementPct Float @default(0)
+  tierPct        Float @default(0) // 0 / 1 / 2 / 3 / 4 / 5
+  amount         Float @default(0)
+
+  status     String @default("PENDING") // PENDING | FINANCE_CONFIRMED | APPROVED | HELD | PAID
+  holdReason String?
+  financeConfirmedBy String?
+  financeConfirmedAt DateTime?
+  approvedBy String?
+  approvedAt DateTime?
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([userId, period])
+}
+
+// Monthly team bonus pool for non-sales departments.
+model BonusPool {
+  id     String @id @default(cuid())
+  period String @unique
+
+  collectedGP       Float @default(0)
+  poolPct           Float @default(2)
+  companyMultiplier Float @default(0)
+  poolAmount        Float @default(0)
+
+  status     String @default("DRAFT") // DRAFT | APPROVED | PAID
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  allocations DepartmentBonusAllocation[]
+}
+
+model DepartmentBonusAllocation {
+  id           String    @id @default(cuid())
+  bonusPoolId  String
+  bonusPool    BonusPool @relation(fields: [bonusPoolId], references: [id], onDelete: Cascade)
+  departmentId String?   // null = management reserve
+  label        String
+  allocationPct Float @default(0)
+  deptScore    Float @default(0)
+  multiplier   Float @default(0)
+  amount       Float @default(0)
+
+  individuals IndividualBonusAllocation[]
+
+  @@index([bonusPoolId])
+}
+
+model IndividualBonusAllocation {
+  id           String @id @default(cuid())
+  allocationId String
+  allocation   DepartmentBonusAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  userId       String
+  score        Float   @default(0)
+  weight       Float   @default(0) // score / dept total scores
+  amount       Float   @default(0)
+  excluded     Boolean @default(false)
+  excludeReason String?
+
+  @@index([allocationId])
+}
+
+// Deduction case workflow: manager raises -> staff explains -> Boss/HR decide.
+// Diamonds only move on approval (via awardPoints, idempotent by case id).
+model DeductionCase {
+  id           String @id @default(cuid())
+  userId       String
+  departmentId String?
+  category     String @default("TASK_DISCIPLINE")
+  severity     String @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL | RED_LINE
+  diamondDeducted Int @default(0)
+  reason       String
+  evidenceUrl  String?
+  status       String @default("OPEN") // OPEN | EXPLAINED | APPROVED | DISMISSED
+  createdBy    String
+  reviewedBy   String?
+  staffExplanation String?
+  finalDecision    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([userId, status])
+}
+
+// AI Performance Coach output log (analysis is data-grounded; humans approve).
+model AIAnalysisLog {
+  id           String @id @default(cuid())
+  analysisType String // COMPANY | DEPARTMENT | STAFF | COACHING | BOSS_MONTHLY | RISK | DEDUCTION_EXPLANATION | PROPOSAL_IMPROVEMENT
+  userId       String?
+  departmentId String?
+  month        String
+  inputDataJson String?
+  outputText   String
+  generatedBy  String
+  reviewedBy   String?
+  status       String @default("GENERATED") // GENERATED | REVIEWED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([analysisType, month])
+}
+
+// Reusable AI response templates (CS drafting etc.) with {placeholders}.
+model AIResponseTemplate {
+  id           String @id @default(cuid())
+  templateType String // CUSTOMS_INQUIRY | CLOSING_REMINDER | INTERNAL_FORWARDING | NEW_LEAD_ACK | SHIPMENT_UPDATE | DELAY_EXPLANATION
+  title        String
+  promptText   String?
+  responseText String
+  departmentEligibility String @default("ALL")
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 }

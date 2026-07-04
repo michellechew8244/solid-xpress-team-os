@@ -70,6 +70,18 @@ export const FEATURES: Record<string, FeatureDef> = {
   "pk-campaigns":      { label: "PK Campaign Admin", icon: "⚔️", hrefs: ["/pk-arena/campaigns"], roles: ADMINS },
   "diamond-requests":  { label: "Diamond Requests", icon: "📥", hrefs: ["/diamonds/requests"], roles: [...MGRS] },
   "reward-rules":      { label: "Reward Rules", icon: "🎯", hrefs: ["/settings/reward-rules"], roles: ["SUPER_ADMIN", "MANAGEMENT"] },
+  // Company-performance system
+  "job-handling":      { label: "Job Handling Records", icon: "🗂️", hrefs: ["/jobs/handling-records"] },
+  "monthly-review":    { label: "Monthly Performance Card", icon: "🗂️", hrefs: ["/performance/monthly-review"] },
+  "deduction-cases":   { label: "Deduction Cases", icon: "⚠️", hrefs: ["/performance/deductions"] },
+  "deduction-rules":   { label: "Deduction Rule Centre", icon: "⚖️", hrefs: ["/performance/deduction-rules"], roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
+  "commission":        { label: "Sales Commission", icon: "💰", hrefs: ["/commission"] },
+  "bonus-pool":        { label: "Team Bonus Pool", icon: "🎁", hrefs: ["/bonus-pool"] },
+  "ai-coach":          { label: "AI Performance Coach", icon: "🤖", hrefs: ["/ai-performance-coach"] },
+  "ai-response":       { label: "AI Response Centre", icon: "✉️", hrefs: ["/ai-response-centre"] },
+  "company-goals":     { label: "Company Goal Centre", icon: "🏢", hrefs: ["/goals/company"], roles: ["SUPER_ADMIN", "MANAGEMENT"], denyOnly: true },
+  "department-goals":  { label: "Department KPI Centre", icon: "🏬", hrefs: ["/goals/departments"], roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"] },
+  "position-kpi":      { label: "Position KPI Setup", icon: "🎯", hrefs: ["/goals/position-kpi"], roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
 };
 
 export function isBossRole(role: string) {

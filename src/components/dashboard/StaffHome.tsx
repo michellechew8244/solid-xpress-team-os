@@ -6,6 +6,7 @@ import { klNow } from "@/lib/attendance";
 import { kpiPoints } from "@/lib/points";
 import { Avatar, Card, Pill, Progress, SectionTitle, StatCard } from "@/components/ui";
 import { AiPanel } from "@/components/AiPanel";
+import { computeIndividualPerformance } from "@/lib/performance";
 
 const GRADE_PILL: Record<string, string> = {
   A_PLUS: "text-green-700", A: "text-emerald-700", B: "text-sky-700", C: "text-amber-700", D: "text-orange-700", E: "text-rose-700",
@@ -62,8 +63,23 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
   const levelProgress = Math.min(100, Math.round(((user.lifetimePoints - prevThreshold) / Math.max(nextThreshold - prevThreshold, 1)) * 100));
   const overdue = myTasks.filter((t) => t.status === "OVERDUE" || isOverdue(t.deadline, t.status)).length;
 
+  const perf = await computeIndividualPerformance(userId, period);
+
   return (
     <div className="space-y-6">
+      {/* 🗂️ My monthly performance strip (company-linked score) */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <StatCard label="My Monthly Score" value={`${perf.score} (${perf.grade})`} icon="🗂️" rag={perf.score >= 80 ? "ok" : perf.score >= 70 ? "warn" : "danger"} />
+        <StatCard label="My Valid Jobs" value={perf.jobTarget ? `${perf.validJobs} / ${perf.jobTarget}` : perf.validJobs} icon="📦" rag={perf.jobTarget === 0 || perf.validJobs >= perf.jobTarget ? "ok" : "warn"} />
+        <StatCard label="Job Achievement" value={`${Math.round(perf.jobVolumePct)}%`} icon="🎯" rag={perf.jobVolumePct >= 100 ? "ok" : perf.jobVolumePct > 0 ? "warn" : "danger"} />
+        <Card className="flex items-center justify-center text-center">
+          <div>
+            <Link href="/performance/monthly-review" className="text-sm font-bold text-brand-700 hover:underline">🗂️ My Performance Card →</Link>
+            <div className="mt-0.5 text-[11px] text-ink-muted"><Link href="/ai-performance-coach" className="hover:underline">🤖 AI: how to improve my score</Link></div>
+          </div>
+        </Card>
+      </div>
+
       {/* ⏰🎮 Daily pulse: attendance + games */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-brand-50 to-white px-4 py-3 text-sm">
         {todayAtt?.clockIn ? (

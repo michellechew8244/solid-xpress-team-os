@@ -4,11 +4,21 @@ import { rm, pct } from "@/lib/format";
 import { Avatar, Card, Pill, Progress, SectionTitle, StatCard } from "@/components/ui";
 import { KpiBarChart, CompareBars, TrendLine, DonutChart } from "@/components/charts";
 import { AiPanel } from "@/components/AiPanel";
+import { computeCompanyPerformance } from "@/lib/performance";
+import { prisma } from "@/lib/prisma";
+import { currentPeriod } from "@/lib/enums";
 
 export async function BossDashboard({ name }: { name: string }) {
   const d = await getBossDashboard();
   const revPct = Math.round((d.revenueAchieved / d.revenueTarget) * 100);
   const gpPct = Math.round((d.gpAchieved / d.gpTarget) * 100);
+  const period = currentPeriod();
+  const [companyPerf, jobsBelow, commissionsPayable, poolPayable] = await Promise.all([
+    computeCompanyPerformance(period),
+    prisma.jobHandlingRecord.groupBy({ by: ["userId"], where: { jobMonth: period, isValidForKPI: true, status: { in: ["COMPLETED", "IN_PROGRESS"] } }, _count: true }),
+    prisma.commissionRecord.aggregate({ where: { period, status: { in: ["FINANCE_CONFIRMED", "APPROVED"] } }, _sum: { amount: true } }),
+    prisma.bonusPool.findUnique({ where: { period }, select: { poolAmount: true, status: true } }),
+  ]);
 
   const queueCards: { label: string; value: number }[] = [
     { label: "Billing pending", value: d.queues.billingPending },
@@ -23,6 +33,28 @@ export async function BossDashboard({ name }: { name: string }) {
 
   return (
     <div className="space-y-6">
+      {/* 🏢 Company performance (Goal Centre live score) */}
+      <Card>
+        <SectionTitle action={<Link href="/goals/company" className="text-xs font-semibold text-brand-600">Goal Centre →</Link>}>
+          🏢 Company Performance — {period}
+        </SectionTitle>
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+          <StatCard label="Company Score" value={`${companyPerf.score} (${companyPerf.grade})`} rag={companyPerf.score >= 80 ? "ok" : companyPerf.score >= 70 ? "warn" : "danger"} icon="🏢" />
+          <StatCard label="Bonus Multiplier" value={`×${companyPerf.multiplier}`} rag={companyPerf.multiplier >= 1 ? "ok" : "warn"} icon="✖️" />
+          <StatCard label="Collected" value={rm(companyPerf.actuals.collection)} sub={`${pct(Math.round(companyPerf.achievements.collection))} of target`} rag="neutral" icon="💵" />
+          <StatCard label="Commission Payable" value={rm(commissionsPayable._sum.amount ?? 0)} sub="confirmed + approved" rag="neutral" icon="💰" />
+          <StatCard label="Bonus Pool" value={poolPayable ? rm(poolPayable.poolAmount) : "—"} sub={poolPayable?.status ?? "not computed"} rag="neutral" icon="🎁" />
+        </div>
+        {!companyPerf.hasGoal && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠️ No company goal set for {period} — <Link href="/goals/company" className="font-semibold underline">set targets</Link> so scores and multipliers are real.</p>
+        )}
+        <div className="mt-2 text-xs text-ink-muted">
+          📦 Staff logging jobs this month: {jobsBelow.length} · <Link href="/jobs/handling-records" className="text-brand-600">job records</Link> ·{" "}
+          <Link href="/ai-performance-coach" className="text-brand-600">🤖 AI analysis & risk detection</Link> ·{" "}
+          <Link href="/performance/deductions" className="text-brand-600">⚠️ deduction cases</Link>
+        </div>
+      </Card>
+
       {/* Performance & people metrics */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Company Performance Score" value={d.companyScore} sub="avg monthly grade score" rag={d.companyScore >= 80 ? "ok" : d.companyScore >= 70 ? "warn" : "danger"} icon="🏁" />
