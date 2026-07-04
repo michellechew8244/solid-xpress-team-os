@@ -27,14 +27,14 @@ async function actor() {
  * resulting public URL back through the normal form action.
  */
 export async function requestUploadTicket(
-  category: "video" | "slides" | "proof" | "document",
+  category: "video" | "slides" | "proof" | "document" | "material",
   filename: string,
   sizeBytes: number,
   mimeType: string,
 ): Promise<UploadTicket | null> {
   const me = await actor();
-  // Training material (video/slides) is manager-only; completion proof and
-  // work-report documents can be uploaded by any signed-in user.
+  // Training material (video/slides/material) is manager-only; completion proof
+  // and work-report documents can be uploaded by any signed-in user.
   if (category !== "proof" && category !== "document" && !canManageTraining(me.role)) throw new Error("Forbidden");
   if (!isCloudStorageConfigured()) return null; // caller falls back to form-post upload (local dev)
   validateUpload(category, sizeBytes, mimeType);
@@ -86,11 +86,12 @@ export async function createTraining(formData: FormData) {
 
   await attachIfPresent(formData, "videoFile", training.id, me.id);
   await attachIfPresent(formData, "slidesFile", training.id, me.id);
+  await attachBatch(formData, training.id, me.id);
 
   revalidatePath("/training");
 }
 
-/** Add extra material (video or slides) to an existing training. */
+/** Add extra material (video, slides, or a whole dropped folder) to a training. */
 export async function addTrainingMaterial(formData: FormData) {
   const me = await actor();
   if (!canManageTraining(me.role)) throw new Error("Forbidden");
@@ -100,9 +101,47 @@ export async function addTrainingMaterial(formData: FormData) {
 
   const addedVideo = await attachIfPresent(formData, "videoFile", trainingId, me.id);
   const addedSlides = await attachIfPresent(formData, "slidesFile", trainingId, me.id);
-  if (!addedVideo && !addedSlides) throw new Error("Choose a video or slides file to upload.");
+  const addedBatch = await attachBatch(formData, trainingId, me.id);
+  if (!addedVideo && !addedSlides && addedBatch === 0) throw new Error("Add at least one file to upload.");
 
   revalidatePath("/training");
+}
+
+/**
+ * Attach a batch of pre-uploaded materials (from the multi-file / folder drop
+ * zone). The browser uploads each file to cloud storage first and passes their
+ * metadata here as JSON in `materialsBatch`. Video files become an inline-
+ * playable VIDEO material; everything else is a downloadable SLIDES material.
+ */
+async function attachBatch(formData: FormData, trainingId: string, uploaderId: string): Promise<number> {
+  const raw = String(formData.get("materialsBatch") ?? "");
+  if (!raw) return 0;
+  let items: unknown;
+  try { items = JSON.parse(raw); } catch { return 0; }
+  if (!Array.isArray(items)) return 0;
+
+  let count = 0;
+  for (const it of items) {
+    if (!it || typeof it !== "object") continue;
+    const rec = it as { url?: unknown; name?: unknown; type?: unknown; size?: unknown };
+    const url = typeof rec.url === "string" ? rec.url : "";
+    const name = typeof rec.name === "string" ? rec.name : "";
+    if (!url || !name) continue;
+    const mimeType = typeof rec.type === "string" && rec.type ? rec.type : "application/octet-stream";
+    await prisma.attachment.create({
+      data: {
+        filename: name,
+        url,
+        mimeType,
+        sizeBytes: typeof rec.size === "number" ? rec.size : 0,
+        kind: mimeType.startsWith("video/") ? "VIDEO" : "SLIDES",
+        uploadedById: uploaderId,
+        trainingId,
+      },
+    });
+    count++;
+  }
+  return count;
 }
 
 async function attachIfPresent(

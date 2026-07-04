@@ -5,8 +5,9 @@ import {
   createTraining, addTrainingMaterial, deleteTrainingMaterial, toggleTraining, submitCompletion,
   addQuizQuestion, toggleQuizQuestion, submitQuizAttempt, createTrainingTopic, toggleTrainingTopic,
 } from "@/app/(app)/training/actions";
-import { stageUploads } from "@/lib/upload-client";
+import { stageUploads, stageFiles } from "@/lib/upload-client";
 import { FileDropZone } from "@/components/FileDropZone";
+import { MultiFileDropZone } from "@/components/MultiFileDropZone";
 
 const DEPTS = ["ALL", "MKT", "SALES", "CS", "OPS", "FWD", "HAUL", "RUN", "DISP", "FIN", "HR"];
 const TOPIC_ICONS = ["📁", "📦", "🚢", "✈️", "🚚", "📋", "🛃", "⚓", "🛡️", "🤝", "💰", "🎯"];
@@ -45,6 +46,7 @@ export function NewTrainingForm({ topics = [] }: { topics?: { id: string; name: 
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [materials, setMaterials] = useState<File[]>([]);
   const ref = useRef<HTMLFormElement>(null);
 
   return (
@@ -53,7 +55,16 @@ export function NewTrainingForm({ topics = [] }: { topics?: { id: string; name: 
       {open && (
         <form
           ref={ref}
-          action={(fd) => start(async () => { setErr(null); try { await stageUploads(fd, [{ field: "videoFile", category: "video" }, { field: "slidesFile", category: "slides" }]); await createTraining(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
+          action={(fd) => start(async () => {
+            setErr(null);
+            try {
+              await stageUploads(fd, [{ field: "videoFile", category: "video" }, { field: "slidesFile", category: "slides" }]);
+              const staged = await stageFiles(materials, "material");
+              if (staged.length) fd.set("materialsBatch", JSON.stringify(staged));
+              await createTraining(fd);
+              ref.current?.reset(); setMaterials([]); setOpen(false);
+            } catch (e) { setErr(e instanceof Error ? e.message : "Error"); }
+          })}
           className="card mt-3 grid gap-3 p-4 sm:grid-cols-2"
         >
           <div className="sm:col-span-2"><label className="label">Title *</label><input name="title" className="input" required /></div>
@@ -79,12 +90,14 @@ export function NewTrainingForm({ topics = [] }: { topics?: { id: string; name: 
             label="🎬 Video file"
             hint="mp4/webm/mov · max 500MB"
           />
-          <FileDropZone
-            name="slidesFile"
-            accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf"
-            label="📑 Slides (PPT/PDF)"
-            hint="max 100MB"
-          />
+          <div className="sm:col-span-2">
+            <MultiFileDropZone
+              files={materials}
+              onChange={setMaterials}
+              label="📎 Slides & materials"
+              hint="Drop many files or a whole folder — PPT, PDF, Word, Excel, images, video · up to 300MB each"
+            />
+          </div>
           <div><label className="label">Or external video link</label><input name="videoLink" className="input" placeholder="https://youtube.com/…" /></div>
           <div><label className="label">Or external SOP link</label><input name="sopDocument" className="input" placeholder="https://…" /></div>
 
@@ -103,6 +116,7 @@ export function AddMaterialForm({ trainingId }: { trainingId: string }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [materials, setMaterials] = useState<File[]>([]);
   const ref = useRef<HTMLFormElement>(null);
 
   return (
@@ -111,12 +125,22 @@ export function AddMaterialForm({ trainingId }: { trainingId: string }) {
       {open && (
         <form
           ref={ref}
-          action={(fd) => start(async () => { setErr(null); try { await stageUploads(fd, [{ field: "videoFile", category: "video" }, { field: "slidesFile", category: "slides" }]); await addTrainingMaterial(fd); ref.current?.reset(); setOpen(false); } catch (e) { setErr(e instanceof Error ? e.message : "Error"); } })}
+          action={(fd) => start(async () => {
+            setErr(null);
+            try {
+              await stageUploads(fd, [{ field: "videoFile", category: "video" }]);
+              const staged = await stageFiles(materials, "material");
+              if (staged.length) fd.set("materialsBatch", JSON.stringify(staged));
+              await addTrainingMaterial(fd);
+              ref.current?.reset(); setMaterials([]); setOpen(false);
+            } catch (e) { setErr(e instanceof Error ? e.message : "Error"); }
+          })}
           className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3"
         >
           <input type="hidden" name="trainingId" value={trainingId} />
           <FileDropZone name="videoFile" accept="video/mp4,video/webm,video/ogg,video/quicktime" label="🎬 Video file" hint="mp4/webm/mov · max 500MB" />
-          <FileDropZone name="slidesFile" accept=".ppt,.pptx,.pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf" label="📑 Slides (PPT/PDF)" hint="max 100MB" />
+          <MultiFileDropZone files={materials} onChange={setMaterials} label="📎 Slides & materials"
+            hint="Drop many files or a whole folder — PPT, PDF, Word, Excel, images, video · up to 300MB each" />
           {err && <div className="rounded-lg bg-rose-50 px-2 py-1 text-xs text-rose-700">{err}</div>}
           <div className="flex gap-2"><button className="btn-primary px-3 py-1 text-xs" disabled={pending}>{pending ? "Uploading…" : "Upload"}</button><button type="button" className="btn-ghost px-3 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button></div>
         </form>

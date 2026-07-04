@@ -30,9 +30,41 @@ export async function uploadProofPhoto(file: File): Promise<string | null> {
   return ticket.publicUrl;
 }
 
+export type StagedFile = { url: string; name: string; type: string; size: number };
+
+/**
+ * Upload a batch of files (e.g. a whole dropped folder of slides/docs) straight
+ * to cloud storage and return their metadata. Used by the multi-file training
+ * material picker. Reports progress via the optional callback.
+ */
+export async function stageFiles(
+  files: File[],
+  category: "material",
+  onProgress?: (done: number, total: number, name: string) => void,
+): Promise<StagedFile[]> {
+  const out: StagedFile[] = [];
+  const usable = files.filter((f) => f instanceof File && f.size > 0);
+  for (let i = 0; i < usable.length; i++) {
+    const file = usable[i];
+    onProgress?.(i, usable.length, file.name);
+    validateUpload(category, file.size, file.type);
+    const ticket = await requestUploadTicket(category, file.name, file.size, file.type);
+    if (!ticket) throw new Error("Cloud storage isn't configured, so folder upload isn't available here.");
+    const res = await fetch(ticket.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!res.ok) throw new Error(`Upload of "${file.name}" failed (${res.status}). ${res.status === 413 ? "It exceeds the storage size limit — ask an admin to raise the Storage upload limit." : "Please try again."}`);
+    out.push({ url: ticket.publicUrl, name: file.name, type: file.type || "application/octet-stream", size: file.size });
+  }
+  onProgress?.(usable.length, usable.length, "");
+  return out;
+}
+
 export async function stageUploads(
   fd: FormData,
-  fields: { field: string; category: "video" | "slides" | "proof" | "document" }[],
+  fields: { field: string; category: "video" | "slides" | "proof" | "document" | "material" }[],
 ): Promise<void> {
   for (const { field, category } of fields) {
     const file = fd.get(field);
