@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { dateTime, shortDate } from "@/lib/format";
+import { dateTime, shortDate, maskId } from "@/lib/format";
 import { isBoss } from "@/lib/rbac";
 import {
   canAccessUserAdmin, canCreateUsers, canDeactivateUsers, canResetPassword,
@@ -79,7 +79,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       <SignupApprovalPanel
         pending={pendingSignups.map((u) => ({
           id: u.id, name: u.name, email: u.email, avatarUrl: u.avatarUrl, avatarColor: u.avatarColor,
-          departmentName: u.department?.name ?? null, nationalId: u.nationalId,
+          departmentName: u.department?.name ?? null, nationalId: maskId(u.nationalId),
           dobLabel: u.dateOfBirth ? shortDate(u.dateOfBirth) : null, requestedLabel: dateTime(u.createdAt),
         }))}
       />

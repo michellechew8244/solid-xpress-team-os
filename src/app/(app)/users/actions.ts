@@ -70,6 +70,8 @@ export async function createUser(formData: FormData): Promise<CreateUserResult> 
       employmentType: String(formData.get("employmentType") ?? "FULL_TIME"),
       employmentStatus: String(formData.get("employmentStatus") ?? "PROBATION"),
       accessStatus: "ACTIVE",
+      // Staff must replace the admin-set temporary password on first login.
+      mustChangePassword: true,
       isActive: true,
       joinDate: formData.get("joinDate") ? new Date(String(formData.get("joinDate"))) : new Date(),
       createdBy: me.id,
@@ -212,7 +214,7 @@ export async function resetUserPassword(formData: FormData) {
   if (pwErr) throw new Error(pwErr);
   if (password !== confirm) throw new Error("Passwords do not match.");
 
-  await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), updatedBy: me.id } });
+  await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), mustChangePassword: true, updatedBy: me.id } });
   await logAudit(prisma, { action: "PASSWORD_RESET", entityId: id, performedBy: me.id, actorName: me.name });
   revalidatePath(`/users/${id}`);
 }
@@ -254,6 +256,7 @@ export async function updateMyProfile(formData: FormData) {
     if (pwErr) throw new Error(pwErr);
     if (password !== String(formData.get("confirm") ?? "")) throw new Error("Passwords do not match.");
     data.passwordHash = await hashPassword(password);
+    data.mustChangePassword = false; // they just chose their own
     await logAudit(prisma, { action: "PASSWORD_RESET", entityId: me.id, performedBy: me.id, actorName: me.name, newValue: "self-service" });
   }
 

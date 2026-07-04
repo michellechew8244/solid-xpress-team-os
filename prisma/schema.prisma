@@ -72,6 +72,8 @@ model User {
   dateOfBirth   DateTime?
   nationalId    String?
   signupStatus  String   @default("APPROVED")
+  // Forces a password change on next login (temp passwords / admin resets).
+  mustChangePassword Boolean @default(false)
 
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id])

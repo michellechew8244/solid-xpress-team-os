@@ -3,14 +3,6 @@
 import { useActionState } from "react";
 import { loginAction, type LoginState } from "./actions";
 
-const DEMO = [
-  { role: "Boss / Super Admin", email: "boss@solidxpress.com.my" },
-  { role: "Department Head (Sales)", email: "sales.head@solidxpress.com.my" },
-  { role: "Staff (Sales)", email: "michelle@solidxpress.com.my" },
-  { role: "HR Admin", email: "hr@solidxpress.com.my" },
-  { role: "Finance Admin", email: "finance@solidxpress.com.my" },
-];
-
 export default function LoginPage() {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, {});
 
@@ -65,19 +57,6 @@ export default function LoginPage() {
           <p className="mt-3 text-center text-sm text-ink-muted">
             New staff? <a href="/signup" className="font-semibold text-brand-600 hover:underline">Sign up here</a> — management approves your account.
           </p>
-
-          <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Demo accounts</div>
-            <div className="mt-2 space-y-1 text-xs text-ink-soft">
-              {DEMO.map((d) => (
-                <div key={d.email} className="flex justify-between gap-2">
-                  <span className="text-ink-muted">{d.role}</span>
-                  <code className="font-mono">{d.email}</code>
-                </div>
-              ))}
-              <div className="pt-1 text-ink-muted">Password for all: <code className="font-mono">password123</code></div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

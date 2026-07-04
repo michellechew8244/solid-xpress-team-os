@@ -49,3 +49,15 @@ export function isOverdue(deadline?: Date | string | null, status?: string): boo
   if (!deadline || status === "COMPLETED" || status === "REJECTED") return false;
   return new Date(deadline).getTime() < Date.now();
 }
+
+/**
+ * Mask a sensitive ID (IC / passport) to only its last 4 characters, e.g.
+ * "990101-14-5555" → "••••••••5555". PDPA data-minimisation: the full number is
+ * kept in the database but never rendered in the UI.
+ */
+export function maskId(id?: string | null): string | null {
+  if (!id) return null;
+  const trimmed = id.replace(/\s/g, "");
+  if (trimmed.length <= 4) return "••••";
+  return "•".repeat(Math.min(8, trimmed.length - 4)) + trimmed.slice(-4);
+}

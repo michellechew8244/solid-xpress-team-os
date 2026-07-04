@@ -11,6 +11,8 @@ import { BirthdayPopup } from "@/components/BirthdayPopup";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // Force a password change before anything else (temp passwords / admin resets).
+  if (user.mustChangePassword) redirect("/change-password");
 
   // Sidebar honours per-user feature rights/restrictions on top of the role.
   const overrides = await getFeatureOverrides(user.id);
