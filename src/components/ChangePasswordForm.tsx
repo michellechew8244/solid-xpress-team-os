@@ -13,8 +13,11 @@ export function ChangePasswordForm() {
     <form
       action={(fd) => start(async () => {
         setErr(null);
-        try { await changeOwnPassword(fd); router.replace("/dashboard"); router.refresh(); }
-        catch (e) { setErr(e instanceof Error ? e.message : "Error"); }
+        try {
+          const res = await changeOwnPassword(fd);
+          if (!res.ok) { setErr(res.error); return; }
+          router.replace("/dashboard"); router.refresh();
+        } catch { setErr("Something went wrong — please try again."); }
       })}
       className="space-y-4"
     >
