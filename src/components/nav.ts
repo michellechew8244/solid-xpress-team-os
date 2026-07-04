@@ -30,6 +30,7 @@ export const NAV: NavGroup[] = [
     group: "Work",
     items: [
       { href: "/attendance", label: "Attendance Centre", icon: "⏰" },
+      { href: "/lobby", label: "Check-in Lobby (TV)", icon: "📺", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
       { href: "/proposals", label: "Idea Bank", icon: "💡" },
       { href: "/missions", label: "Mission Board", icon: "🎯" },
       { href: "/jobs", label: "Job Board", icon: "📦" },
