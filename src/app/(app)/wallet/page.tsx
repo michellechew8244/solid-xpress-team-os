@@ -24,7 +24,11 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Diamond Wallet" subtitle={`Level ${user.officialLevel} · ${growthLevelName(user.officialLevel)}`} />
+      <PageHeader
+        title="Diamond Wallet"
+        subtitle={`Level ${user.officialLevel} · ${growthLevelName(user.officialLevel)}`}
+        action={<a href="/rewards" className="btn-primary">🎁 Redeem rewards</a>}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Diamond Balance" value={user.currentPoints.toLocaleString()} icon="💎" />

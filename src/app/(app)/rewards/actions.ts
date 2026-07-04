@@ -8,32 +8,42 @@ import { awardPoints } from "@/lib/points";
 import { notify } from "@/lib/notify";
 import { leaveBlockReason } from "@/services/leave";
 
+export type RedeemResult = { ok: true } | { ok: false; error: string };
+
 /**
  * Reward redemption flow (section F):
  * 1. Staff selects reward → 2. system checks balance → 3. submits redemption
  * (PENDING, points NOT yet deducted) → 4. HR/Admin approves → 5. points
  * deducted → 6. status updated → 7. staff notified.
+ *
+ * Returns { ok:false, error } instead of throwing — production redacts thrown
+ * server-action errors, so staff would never see the real reason.
  */
-export async function redeemReward(rewardId: string) {
+export async function redeemReward(rewardId: string): Promise<RedeemResult> {
+  const fail = (error: string): RedeemResult => ({ ok: false, error });
   const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  if (!session) return fail("Please log in again.");
 
   const [reward, user] = await Promise.all([
     prisma.reward.findUnique({ where: { id: rewardId } }),
     prisma.user.findUnique({ where: { id: session.id } }),
   ]);
-  if (!reward || !user) throw new Error("Not found");
-  if (!user.isActive || user.accessStatus !== "ACTIVE") throw new Error("Deactivated accounts cannot redeem rewards.");
-  if (!reward.isActive) throw new Error("This reward is no longer available");
+  if (!reward || !user) return fail("Reward not found.");
+  if (!user.isActive || user.accessStatus !== "ACTIVE") return fail("Deactivated accounts cannot redeem rewards.");
+  if (!reward.isActive) return fail("This reward is no longer available.");
   // stock -1 = unlimited; 0 or less = out of stock.
-  if (reward.stock === 0) throw new Error("This reward is out of stock");
-  if (user.currentPoints < reward.pointsCost) throw new Error("Insufficient points");
+  if (reward.stock === 0) return fail("This reward is out of stock.");
+  if (user.currentPoints < reward.pointsCost) return fail(`Not enough diamonds — this costs ${reward.pointsCost.toLocaleString()} 💎 and you have ${user.currentPoints.toLocaleString()} 💎.`);
 
   // Leave rewards are blocked under certain conditions (spec §C).
   if (reward.category === "EXTRA_LEAVE") {
     const blocked = await leaveBlockReason(user.id);
-    if (blocked) throw new Error(`Leave reward blocked: ${blocked}.`);
+    if (blocked) return fail(`Leave reward blocked: ${blocked}.`);
   }
+
+  // One pending request per reward at a time (prevents accidental double-taps).
+  const dup = await prisma.rewardRedemption.findFirst({ where: { userId: user.id, rewardId, status: "PENDING" } });
+  if (dup) return fail("You already have a pending request for this reward — HR will review it soon.");
 
   await prisma.rewardRedemption.create({
     data: { rewardId, userId: user.id, pointsSpent: reward.pointsCost, status: "PENDING" },
@@ -47,6 +57,7 @@ export async function redeemReward(rewardId: string) {
     ),
   );
   revalidatePath("/rewards");
+  return { ok: true };
 }
 
 /** Reward store item management (Boss / HR Admin only). */

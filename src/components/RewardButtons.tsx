@@ -15,7 +15,7 @@ export function RedeemButton({
   blockedReason?: string | null;
 }) {
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const affordable = balance >= cost;
   const blocked = !!blockedReason;
 
@@ -23,23 +23,24 @@ export function RedeemButton({
     <div>
       <button
         className={affordable && !blocked ? "btn-primary w-full" : "btn-ghost w-full"}
-        disabled={pending || !affordable || blocked}
+        disabled={pending || !affordable || blocked || msg?.ok}
         title={blockedReason ?? undefined}
         onClick={() =>
           start(async () => {
             try {
-              await redeemReward(rewardId);
-              setMsg("Requested ✓");
+              const res = await redeemReward(rewardId);
+              if (res.ok) setMsg({ ok: true, text: "Requested ✓ — waiting for HR/Management approval. You'll get a notification." });
+              else setMsg({ ok: false, text: res.error });
             } catch (e) {
-              setMsg(e instanceof Error ? e.message : "Failed");
+              setMsg({ ok: false, text: e instanceof Error ? e.message : "Something went wrong — please try again." });
             }
           })
         }
       >
-        {pending ? "…" : blocked ? "🔒 Leave blocked" : affordable ? "Redeem" : "Not enough diamonds"}
+        {pending ? "…" : msg?.ok ? "✓ Requested" : blocked ? "🔒 Leave blocked" : affordable ? `Redeem for ${cost.toLocaleString()} 💎` : "Not enough diamonds"}
       </button>
       {blockedReason && <div className="mt-1 text-center text-xs text-amber-600">{blockedReason}</div>}
-      {msg && <div className="mt-1 text-center text-xs text-ink-muted">{msg}</div>}
+      {msg && <div className={`mt-1 text-center text-xs ${msg.ok ? "text-ok" : "text-danger"}`}>{msg.text}</div>}
     </div>
   );
 }
