@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getFeatureOverrides, navForUser } from "@/lib/features";
 import { klNow } from "@/lib/attendance";
+import { ensureBirthdayForumPost } from "@/lib/birthday";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Topbar } from "@/components/Topbar";
@@ -28,6 +29,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     names: bdayPeople.map((u) => u.name),
     isMine: bdayPeople.some((u) => u.id === user.id),
   };
+  // Auto-post the morning birthday announcement to the Staff Forum (idempotent).
+  if (bdayPeople.length > 0) {
+    await ensureBirthdayForumPost(bdayPeople.map((u) => ({ id: u.id, name: u.name })));
+  }
 
   return (
     <div className="min-h-screen">

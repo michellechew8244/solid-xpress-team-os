@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { klNow } from "@/lib/attendance";
+import { todaysBirthdayIds } from "@/lib/birthday";
 import { LobbyStage } from "@/components/LobbyStage";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +12,14 @@ export default async function LobbyPage() {
   if (!s) redirect("/login");
   const { dateStr } = klNow();
 
-  const [records, totalCrew] = await Promise.all([
+  const [records, totalCrew, bdayIds] = await Promise.all([
     prisma.attendanceRecord.findMany({
       where: { date: dateStr, clockIn: { not: null } },
       include: { user: { select: { id: true, name: true, avatarColor: true, avatarUrl: true } } },
       orderBy: { clockIn: "asc" },
     }),
     prisma.user.count({ where: { isActive: true, role: { in: ["STAFF", "DEPARTMENT_HEAD", "HR_ADMIN", "FINANCE_ADMIN", "MANAGEMENT"] } } }),
+    todaysBirthdayIds(),
   ]);
 
   const crew = records
@@ -28,6 +30,7 @@ export default async function LobbyPage() {
       color: r.user.avatarColor,
       photo: r.user.avatarUrl,
       late: r.lateMinutes > 0,
+      birthday: bdayIds.has(r.user.id),
       time: r.clockIn ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit", hour12: false }).format(r.clockIn) : "",
     }));
 

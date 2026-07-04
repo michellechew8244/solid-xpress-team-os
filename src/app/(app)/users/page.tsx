@@ -26,7 +26,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const scopeWhere = userListScope({ id: me.id, role: me.role, departmentId: me.departmentId });
 
   // Build filtered query.
-  const where: Prisma.UserWhereInput = { ...scopeWhere };
+  const where: Prisma.UserWhereInput = { ...scopeWhere, NOT: { email: { endsWith: "@solidxpress.system" } } };
   if (sp.dept) where.departmentId = sp.dept;
   if (sp.role) where.role = sp.role;
   if (sp.status) where.employmentStatus = sp.status;

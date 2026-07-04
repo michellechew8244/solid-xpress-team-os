@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface CrewMember { id: string; name: string; color: string; photo: string | null; late: boolean; time: string }
+interface CrewMember { id: string; name: string; color: string; photo: string | null; late: boolean; birthday: boolean; time: string }
 
 /** Stable pseudo-random 0..1 from a string (keeps avatar positions steady across refreshes). */
 function seed(str: string, salt: number): number {
@@ -129,7 +129,12 @@ export function LobbyStage({ crew, total, date, checkinUrl }: { crew: CrewMember
           const delay = seed(m.id, 13) * 2;
           return (
             <div key={m.id} className="flex flex-col items-center" style={{ animation: `lobby-bob ${bob}s ease-in-out ${delay}s infinite` }}>
-              <div className="relative grid h-16 w-16 place-items-center rounded-full text-lg font-bold shadow-[0_0_20px_rgba(129,140,248,0.7)] ring-2 ring-white/40" style={{ background: m.color }}>
+              <div
+                className={`relative grid h-16 w-16 place-items-center rounded-full text-lg font-bold ${m.birthday ? "shadow-[0_0_28px_rgba(250,204,21,0.9)] ring-4 ring-yellow-300" : "shadow-[0_0_20px_rgba(129,140,248,0.7)] ring-2 ring-white/40"}`}
+                style={{ background: m.color }}
+              >
+                {/* 🎉 Party hat on the birthday person */}
+                {m.birthday && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-2xl drop-shadow" title="Birthday!">🎉</span>}
                 {/* Cute unique cartoon avatar seeded by the person (falls back to the colored circle). */}
                 <img
                   src={`https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(m.id)}&backgroundType=gradientLinear`}
@@ -137,9 +142,12 @@ export function LobbyStage({ crew, total, date, checkinUrl }: { crew: CrewMember
                   className="h-full w-full rounded-full"
                   loading="lazy"
                 />
-                {m.late && <span className="absolute -right-1 -top-1 text-sm" title="Late">⏰</span>}
+                {m.birthday && <span className="absolute -bottom-1 -right-1 text-lg" title="Birthday!">🎂</span>}
+                {!m.birthday && m.late && <span className="absolute -right-1 -top-1 text-sm" title="Late">⏰</span>}
               </div>
-              <div className="mt-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">{m.name.split(" ")[0]}</div>
+              <div className={`mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.birthday ? "bg-yellow-300 text-yellow-900" : "bg-black/60 text-white"}`}>
+                {m.birthday ? "🎂 " : ""}{m.name.split(" ")[0]}
+              </div>
             </div>
           );
         })}
