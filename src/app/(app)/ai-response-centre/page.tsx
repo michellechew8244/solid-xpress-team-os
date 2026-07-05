@@ -4,7 +4,7 @@ import { isBoss } from "@/lib/rbac";
 import { SALES_PLAYBOOKS, claudeConfigured } from "@/lib/ai-reply";
 import { Card, PageHeader, SectionTitle } from "@/components/ui";
 import { ResponseCentre } from "@/components/ResponseCentre";
-import { ReplyHelper, SalesCoach, TemplateManager } from "@/components/ReplyHelper";
+import { ReplyHelper, SalesCoach, TemplateManager, OpsStatusDraft } from "@/components/ReplyHelper";
 import { seedResponseTemplates } from "./actions";
 
 export default async function ResponseCentrePage() {
@@ -13,7 +13,15 @@ export default async function ResponseCentrePage() {
   const manage = isBoss(me.role) || me.role === "HR_ADMIN";
   const claudeOn = claudeConfigured();
 
-  const templates = await prisma.aIResponseTemplate.findMany({ where: manage ? {} : { isActive: true }, orderBy: { title: "asc" } });
+  const [templates, jobs] = await Promise.all([
+    prisma.aIResponseTemplate.findMany({ where: manage ? {} : { isActive: true }, orderBy: { title: "asc" } }),
+    prisma.job.findMany({
+      where: { status: { in: ["OPEN", "IN_PROGRESS", "ON_HOLD"] } },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+      select: { id: true, jobNumber: true, status: true, customer: { select: { name: true } } },
+    }),
+  ]);
 
   return (
     <>
@@ -30,6 +38,15 @@ export default async function ResponseCentrePage() {
       <Card className="mb-5">
         <SectionTitle>🆘 Help me reply</SectionTitle>
         <ReplyHelper claudeOn={claudeOn} />
+      </Card>
+
+      <Card className="mb-5">
+        <SectionTitle>🚢 Operation status update</SectionTitle>
+        <p className="mb-2 text-xs text-ink-muted">Pick a job — the draft is built from its real milestones, vessel and ETA/ETD. Choose customer update or internal CS handover.</p>
+        <OpsStatusDraft
+          jobs={jobs.map((j) => ({ id: j.id, label: `${j.jobNumber}${j.customer ? ` · ${j.customer.name}` : ""} (${j.status.replace(/_/g, " ")})` }))}
+          claudeOn={claudeOn}
+        />
       </Card>
 
       <Card className="mb-5">

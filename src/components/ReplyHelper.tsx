@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { draftCustomerReply, draftSalesMessage, saveTemplate, deleteTemplate, type DraftResult } from "@/app/(app)/ai-response-centre/actions";
+import { draftCustomerReply, draftSalesMessage, draftOpsStatusUpdate, saveTemplate, deleteTemplate, type DraftResult } from "@/app/(app)/ai-response-centre/actions";
 import type { Playbook } from "@/lib/ai-reply";
 
 function CopyButton({ text }: { text: string }) {
@@ -65,6 +65,61 @@ export function ReplyHelper({ claudeOn }: { claudeOn: boolean }) {
             <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
               <b>Coach tips for this situation:</b>
               <ul className="mt-1 list-disc pl-4">{result.tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Operation status update — drafts from the job's real milestones/ETA. */
+export function OpsStatusDraft({ jobs, claudeOn }: { jobs: { id: string; label: string }[]; claudeOn: boolean }) {
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<DraftResult | null>(null);
+
+  if (jobs.length === 0) {
+    return <p className="text-sm text-ink-muted">No jobs on the Job Board yet — create jobs there and this tool drafts status updates from their real milestones, vessel and ETA/ETD.</p>;
+  }
+  return (
+    <div>
+      <form action={(fd) => start(async () => setResult(await draftOpsStatusUpdate(fd)))} className="grid gap-2 sm:grid-cols-4">
+        <div className="sm:col-span-2">
+          <label className="label">Job *</label>
+          <select name="jobId" className="input" required>
+            {jobs.map((j) => <option key={j.id} value={j.id}>{j.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Send to</label>
+          <select name="audience" className="input">
+            <option value="CUSTOMER">🚢 Customer update</option>
+            <option value="INTERNAL">🔁 Internal CS handover</option>
+          </select>
+        </div>
+        <div className="flex items-end"><button className="btn-primary w-full" disabled={pending}>{pending ? "Drafting…" : "🤖 Draft update"}</button></div>
+        <div className="sm:col-span-4">
+          <label className="label">Extra note (optional — e.g. &quot;vessel rolled, new ETA Friday&quot;)</label>
+          <input name="note" className="input" />
+        </div>
+      </form>
+      <p className="mt-1 text-[11px] text-ink-muted">Facts come straight from the job&apos;s milestones, vessel and ETA/ETD — nothing is invented. Engine: {claudeOn ? "Claude + job data" : "job data"}.</p>
+
+      {result && !result.ok && <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{result.error}</div>}
+      {result && result.ok && (
+        <div className="mt-3">
+          <div className="mb-1 flex items-center gap-2 text-xs">
+            <span className="badge bg-indigo-100 text-indigo-700">{result.intentLabel}</span>
+            <span className="badge bg-slate-100 text-slate-600">{result.engine === "claude" ? "Claude draft" : "from job data"}</span>
+          </div>
+          <div className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-relaxed">{result.draft}</div>
+          <div className="mt-2 flex items-center gap-2">
+            <CopyButton text={result.draft} />
+            <span className="text-xs text-amber-600">⚠️ Check the milestones are current before sending.</span>
+          </div>
+          {result.tips.length > 0 && (
+            <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
+              <ul className="list-disc pl-4">{result.tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
             </div>
           )}
         </div>

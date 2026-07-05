@@ -53,6 +53,88 @@ export async function isClaudeConfigured(): Promise<boolean> {
   return claudeConfigured();
 }
 
+/**
+ * Operation status update: drafts a shipment update from the job's REAL data
+ * (milestones, vessel, ETD/ETA, container) — nothing invented. Audience:
+ * customer message or internal CS handover.
+ */
+export async function draftOpsStatusUpdate(fd: FormData): Promise<DraftResult> {
+  const s = await getSession();
+  if (!s) return { ok: false, error: "Please log in again." };
+  const jobId = String(fd.get("jobId") ?? "");
+  const audience = String(fd.get("audience")) === "INTERNAL" ? "INTERNAL" : "CUSTOMER";
+  const note = String(fd.get("note") ?? "").trim();
+  if (!jobId) return { ok: false, error: "Pick a job first." };
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    include: { customer: { select: { name: true } }, milestones: { orderBy: { order: "asc" } } },
+  });
+  if (!job) return { ok: false, error: "Job not found." };
+
+  const fmt = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(d) : null);
+  const done = job.milestones.filter((m) => m.done);
+  const current = done.length ? done[done.length - 1].label : "Job created";
+  const next = job.milestones.find((m) => !m.done)?.label ?? null;
+
+  const facts: string[] = [];
+  if (job.vesselName) facts.push(`Vessel: ${job.vesselName}${job.voyage ? ` V.${job.voyage}` : ""}`);
+  if (job.containerNumber) facts.push(`Container: ${job.containerNumber}`);
+  if (fmt(job.etd)) facts.push(`ETD: ${fmt(job.etd)}`);
+  if (fmt(job.eta)) facts.push(`ETA: ${fmt(job.eta)}`);
+  if (fmt(job.closingDate)) facts.push(`Closing: ${fmt(job.closingDate)}`);
+
+  const builtin = audience === "CUSTOMER"
+    ? [
+        `Dear ${job.customer?.name ?? "{customerName}"},`,
+        ``,
+        `Update on ${job.jobNumber}${job.pol && job.pod ? ` (${job.pol} → ${job.pod})` : ""}:`,
+        `• Current status: ${current} ✅`,
+        ...(next ? [`• Next step: ${next}`] : []),
+        ...(facts.length ? [`• ${facts.join(" · ")}`] : []),
+        ...(note ? [`• Note: ${note}`] : []),
+        ``,
+        `We will update you at the next milestone. Let us know if you need anything.`,
+        ``,
+        `Thank you.`,
+        `Solid Xpress M Sdn Bhd`,
+      ].join("\n")
+    : [
+        `Hi CS Team,`,
+        ``,
+        `Status handover for ${job.jobNumber}${job.customer ? ` (${job.customer.name})` : ""}:`,
+        `• Done: ${done.length ? done.map((m) => m.label).join(" → ") : "job created only"}`,
+        ...(next ? [`• Next: ${next}`] : []),
+        ...(facts.length ? [`• ${facts.join(" · ")}`] : []),
+        ...(note ? [`• Note: ${note}`] : []),
+        ``,
+        `Please update the customer accordingly. Ping me if anything is unclear.`,
+      ].join("\n");
+
+  // Optional Claude polish, grounded strictly in the real facts above.
+  const ai = note || audience === "CUSTOMER"
+    ? await claudeDraft(
+        "CUSTOMER_REPLY",
+        `Draft a ${audience === "CUSTOMER" ? "customer shipment status update" : "short internal handover message to the CS team"} using ONLY these facts (do not add or change any):\n${builtin}`,
+        "Keep every fact exactly as given.",
+      )
+    : null;
+
+  await prisma.aIAnalysisLog.create({
+    data: { analysisType: "OPS_STATUS_DRAFT", month: currentPeriod(), outputText: (ai ?? builtin).slice(0, 4000), generatedBy: s.id, inputDataJson: JSON.stringify({ jobId, audience, engine: ai ? "claude" : "builtin" }) },
+  });
+  return {
+    ok: true,
+    draft: ai ?? builtin,
+    intentLabel: audience === "CUSTOMER" ? "🚢 Customer status update" : "🔁 Internal CS handover",
+    tips: [
+      "Proactive updates count for your KPI — a missed milestone update is a −20 💎 deduction.",
+      "Log this as a MILESTONE_UPDATE / SHIPMENT_STATUS_UPDATE job record.",
+    ],
+    engine: ai ? "claude" : "builtin",
+  };
+}
+
 export type TemplateResult = { ok: true } | { ok: false; error: string };
 
 /** Boss/HR add or edit a reusable copy-paste template. */
