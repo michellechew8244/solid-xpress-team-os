@@ -4,8 +4,9 @@ import { isBoss, canApproveTasks } from "@/lib/rbac";
 import { currentPeriod } from "@/lib/enums";
 import { ragFromPct } from "@/lib/format";
 import { Avatar, Card, PageHeader, Pill, Progress, SectionTitle } from "@/components/ui";
-import { KpiEntryRow, KpiReviewButtons } from "@/components/KpiForms";
+import { KpiEntryRow, KpiReviewButtons, KpiProgressBar } from "@/components/KpiForms";
 import { requireFeature } from "@/lib/features";
+import { positionForUser, validJobCount } from "@/lib/performance";
 
 export default async function KpiPage() {
   await requireFeature("kpi");
@@ -47,6 +48,21 @@ export default async function KpiPage() {
   return (
     <>
       <PageHeader title="KPI Dashboard" subtitle={`Enter actuals, track achievement & points · ${period}`} />
+
+      {await (async () => {
+        const position = await positionForUser(user.id);
+        if (!position || position.minJobTarget <= 0) return null;
+        const valid = await validJobCount(user.id, period);
+        return (
+          <Card className="mb-6">
+            <SectionTitle action={<a href="/jobs/handling-records" className="text-xs font-semibold text-brand-600">Log jobs →</a>}>
+              📦 My Job Volume — {position.name}
+            </SectionTitle>
+            <div className="text-xs text-ink-muted">{valid} of {position.minJobTarget} valid jobs this month (0% below {position.zeroBandBelow} · 110% at {position.cap110At})</div>
+            <div className="mt-1.5"><KpiProgressBar actual={valid} target={position.minJobTarget} unit="jobs" /></div>
+          </Card>
+        );
+      })()}
 
       {myKpis.length > 0 && (
         <Card className="mb-6">
