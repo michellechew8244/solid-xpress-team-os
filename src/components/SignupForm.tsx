@@ -60,7 +60,8 @@ export function SignupForm({ departments }: { departments: { id: string; name: s
       className="grid gap-3 sm:grid-cols-2"
     >
       <div className="sm:col-span-2">
-        <FileDropZone name="photo" accept="image/png,image/jpeg,image/webp" capture="user" label="📷 Your photo * (this becomes your avatar)" hint="Tap to open the camera and take a selfie · max 3MB" />
+        {/* No `capture` attr: phones then offer BOTH camera and gallery. */}
+        <FileDropZone name="photo" accept="image/png,image/jpeg,image/webp" label="📷 Your photo * (this becomes your avatar)" hint="Take a selfie or choose from your gallery — large photos are compressed automatically" />
       </div>
       <div className="sm:col-span-2"><label className="label">Full name *</label><input name="name" className="input" required /></div>
       <div><label className="label">Email *</label><input name="email" type="email" className="input" required /></div>
