@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { isBoss } from "@/lib/rbac";
+import { notifyMany } from "@/lib/notify";
 
-/** Post a message to the company-wide staff forum. */
+/** Post a message to the company-wide staff forum. @mentions notify users. */
 export async function postForumMessage(formData: FormData) {
   const s = await getSession();
   if (!s) throw new Error("Unauthorized");
@@ -13,6 +14,24 @@ export async function postForumMessage(formData: FormData) {
   if (!body) return;
   if (body.length > 2000) throw new Error("Message is too long (max 2000 characters).");
   await prisma.forumMessage.create({ data: { userId: s.id, body } });
+
+  // 🔔 @mentions: notify every active user whose name appears after an "@".
+  if (body.includes("@")) {
+    const users = await prisma.user.findMany({
+      where: { isActive: true, NOT: { email: { endsWith: "@solidxpress.system" } } },
+      select: { id: true, name: true },
+    });
+    const lower = body.toLowerCase();
+    const mentioned = users.filter((u) => u.id !== s.id && u.name && lower.includes(`@${u.name.toLowerCase()}`));
+    if (mentioned.length > 0) {
+      await notifyMany(prisma, mentioned.map((u) => u.id), {
+        type: "ANNOUNCEMENT",
+        title: `💬 ${s.name} mentioned you in the Staff Forum`,
+        body: body.length > 120 ? `${body.slice(0, 120)}…` : body,
+        link: "/forum",
+      });
+    }
+  }
   revalidatePath("/forum");
 }
 
