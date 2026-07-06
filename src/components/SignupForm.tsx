@@ -4,6 +4,25 @@ import { useRef, useState, useTransition } from "react";
 import { signUp } from "@/app/signup/actions";
 import { FileDropZone } from "@/components/FileDropZone";
 
+/** Downscale a photo in the browser (max 1280px, JPEG) so phone selfies of
+ *  4–8MB never hit the server's 3MB limit. Falls back to the original file. */
+async function compressPhoto(file: File): Promise<File> {
+  try {
+    if (file.size <= 1024 * 1024) return file; // already small
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], (file.name.replace(/\.\w+$/, "") || "photo") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file; // any failure → send the original and let the server validate
+  }
+}
+
 export function SignupForm({ departments }: { departments: { id: string; name: string }[] }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -30,6 +49,8 @@ export function SignupForm({ departments }: { departments: { id: string; name: s
         // Photo is required — it becomes the staff avatar. Check before submitting.
         const photo = fd.get("photo");
         if (!(photo instanceof File) || photo.size === 0) { setErr("Please take a photo (or choose one) — it becomes your avatar in the app. 📷"); return; }
+        // Auto-compress large phone photos so size never blocks a sign-up.
+        fd.set("photo", await compressPhoto(photo));
         try {
           const res = await signUp(fd);
           if (res.ok) setDone(true);

@@ -23,9 +23,14 @@ export type SignupResult = { ok: true } | { ok: false; error: string };
  * useless "Server Components render" message.
  */
 export async function signUp(formData: FormData): Promise<SignupResult> {
-  const fail = (error: string): SignupResult => ({ ok: false, error });
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  // Log rejections (reason + email only, no sensitive data) so failed
+  // sign-ups can be diagnosed from the server logs.
+  const fail = (error: string): SignupResult => {
+    console.log(`signup rejected [${email || "no-email"}]: ${error}`);
+    return { ok: false, error };
+  };
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
   const dobRaw = String(formData.get("dateOfBirth") ?? "");
