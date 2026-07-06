@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { signUp } from "@/app/signup/actions";
 import { FileDropZone } from "@/components/FileDropZone";
+import { dobFromIC } from "@/lib/ic";
 
 /** Downscale a photo in the browser (max 1280px, JPEG) so phone selfies of
  *  4–8MB never hit the server's 3MB limit. Falls back to the original file. */
@@ -27,7 +28,15 @@ export function SignupForm({ departments }: { departments: { id: string; name: s
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [dob, setDob] = useState("");
+  const [dobAuto, setDobAuto] = useState(false);
   const ref = useRef<HTMLFormElement>(null);
+
+  // Shortcut: typing the IC auto-fills the date of birth (first 6 digits).
+  function onIcChange(v: string) {
+    const parsed = dobFromIC(v);
+    if (parsed && (dob === "" || dobAuto)) { setDob(parsed); setDobAuto(true); }
+  }
 
   if (done) {
     return (
@@ -66,8 +75,15 @@ export function SignupForm({ departments }: { departments: { id: string; name: s
       <div className="sm:col-span-2"><label className="label">Full name *</label><input name="name" className="input" required /></div>
       <div><label className="label">Email *</label><input name="email" type="email" className="input" required /></div>
       <div><label className="label">Phone</label><input name="phoneNumber" className="input" placeholder="+60…" /></div>
-      <div><label className="label">Date of birth *</label><input name="dateOfBirth" type="date" className="input" required /></div>
-      <div><label className="label">IC / ID number *</label><input name="nationalId" className="input" required /></div>
+      <div>
+        <label className="label">IC / ID number *</label>
+        <input name="nationalId" className="input" placeholder="e.g. 950311-14-5566" onChange={(e) => onIcChange(e.target.value)} required />
+      </div>
+      <div>
+        <label className="label">Date of birth *</label>
+        <input name="dateOfBirth" type="date" className="input" value={dob} onChange={(e) => { setDob(e.target.value); setDobAuto(false); }} required />
+        <div className="mt-0.5 text-[11px] text-ink-muted">{dobAuto ? "✨ Filled from your IC — correct it if needed" : "Shortcut: type your IC above and this fills itself"}</div>
+      </div>
       <div className="sm:col-span-2">
         <label className="label">Department</label>
         <select name="departmentId" className="input"><option value="">— not sure yet —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
