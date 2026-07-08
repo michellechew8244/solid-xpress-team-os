@@ -1611,3 +1611,23 @@ model AIResponseTemplate {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 }
+
+// Curated "Wall of Fame" — Boss/HR manually add honours with an optional photo
+// (Genius Record, Monthly/Yearly Champion, Sweet Memory, or a custom category).
+model HallOfFameEntry {
+  id          String  @id @default(cuid())
+  category    String  @default("MONTHLY_CHAMPION") // GENIUS_RECORD | MONTHLY_CHAMPION | YEARLY_CHAMPION | SWEET_MEMORY | CUSTOM
+  title       String
+  honoree     String? // free-text name(s); optional userId links to a real staff avatar
+  userId      String?
+  periodLabel String? // e.g. "July 2026" or "2026"
+  description String?
+  imageUrl    String?
+  order       Int     @default(0)
+  isActive    Boolean @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([category, isActive])
+}

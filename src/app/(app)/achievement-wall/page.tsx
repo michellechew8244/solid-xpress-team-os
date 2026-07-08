@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { isBoss } from "@/lib/rbac";
 import { dateTime } from "@/lib/format";
-import { Avatar, Card, EmptyState, PageHeader } from "@/components/ui";
+import { Avatar, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
 import { requireFeature } from "@/lib/features";
+import { WallOfFameAdmin, CATEGORY_META, type FameEntry } from "@/components/WallOfFameAdmin";
 
 interface WallItem {
   key: string;
@@ -19,7 +21,9 @@ export default async function AchievementWallPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const [badges, levels, pkResults, proposals, wishes, specialTxns, users, campaigns, badgeDefs, deptList] = await Promise.all([
+  const canManage = isBoss(user.role) || user.role === "HR_ADMIN";
+  const [fameEntries, badges, levels, pkResults, proposals, wishes, specialTxns, users, campaigns, badgeDefs, deptList] = await Promise.all([
+    prisma.hallOfFameEntry.findMany({ where: canManage ? {} : { isActive: true }, orderBy: [{ order: "asc" }, { createdAt: "desc" }] }),
     prisma.userBadge.findMany({ orderBy: { awardedAt: "desc" }, take: 15 }),
     prisma.levelHistory.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.pKResult.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
@@ -65,9 +69,52 @@ export default async function AchievementWallPage() {
     }),
   ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 40);
 
+  const famePeople = users.map((x) => ({ id: x.id, name: x.name }));
+
   return (
     <>
       <PageHeader title="🏛️ Achievement Wall" subtitle="Public recognition — every win, level-up and granted dream at Solid Xpress." />
+
+      {/* ⭐ Curated Wall of Fame (Boss/HR editable) */}
+      {canManage && <WallOfFameAdmin entries={fameEntries as FameEntry[]} people={famePeople} />}
+
+      {fameEntries.filter((e) => e.isActive).length > 0 && (
+        <Card className="mb-6 border-amber-200 bg-gradient-to-b from-amber-50/60 to-white">
+          <SectionTitle>⭐ Wall of Fame</SectionTitle>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {fameEntries.filter((e) => e.isActive).map((e) => {
+              const meta = CATEGORY_META(e.category);
+              const person = e.userId ? u.get(e.userId) : null;
+              return (
+                <div key={e.id} className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+                  {e.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={e.imageUrl} alt={e.title} className="h-40 w-full object-cover" />
+                  ) : (
+                    <div className="flex h-40 w-full items-center justify-center bg-gradient-to-br from-amber-100 to-amber-50 text-6xl">{meta.icon}</div>
+                  )}
+                  <div className="p-3">
+                    <div className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                      <span>{meta.icon} {meta.label.replace(/^\S+\s/, "")}</span>
+                      {e.periodLabel && <span className="text-ink-muted">· {e.periodLabel}</span>}
+                    </div>
+                    <div className="font-bold text-ink">{e.title}</div>
+                    {(person || e.honoree) && (
+                      <div className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+                        {person && <Avatar name={person.name} color={person.avatarColor} size={20} />}
+                        <span className="font-semibold">{person?.name ?? e.honoree}</span>
+                      </div>
+                    )}
+                    {e.description && <p className="mt-1 text-xs text-ink-muted">{e.description}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      <SectionTitle>📰 Recent recognition feed</SectionTitle>
       {items.length === 0 ? (
         <EmptyState title="The wall awaits its first hero" hint="Badges, PK wins, accepted ideas and granted wishes will appear here." />
       ) : (
