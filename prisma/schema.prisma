@@ -1631,3 +1631,131 @@ model HallOfFameEntry {
 
   @@index([category, isActive])
 }
+
+// ===========================================================================
+// Result-oriented KPI system: tasks are evidence, RESULTS are the KPI.
+// Individual score = Business Result 40% + Customer/Internal Outcome 25% +
+// Accuracy & Risk Control 20% + Contribution 10% + Discipline 5%.
+// ===========================================================================
+
+// Each CS staff is assigned one role profile that defines their result areas.
+model CSRoleProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  profileType String  // CS_CUSTOMER_CARE | CS_BOOKING_DOCUMENTATION | CS_TRANSLOADING | CS_HYBRID | CS_TEAM_HEAD
+  monthlyWorkloadBenchmark Float @default(60) // case credits or valid jobs, workload fairness only
+  isActive    Boolean @default(true)
+  assignedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+// Case credit weights — workload FAIRNESS indicator, never the main KPI.
+model CaseCreditSetting {
+  id          String  @id @default(cuid())
+  workType    String  @unique // SIMPLE_INQUIRY, NEW_LEAD_INQUIRY, ...
+  baseCredit  Float   @default(1)
+  description String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+// Result areas + weights per department/role profile (the KPI definition).
+model ResultKPI {
+  id           String  @id @default(cuid())
+  departmentId String?
+  roleProfile  String? // CS profile type, OPERATION, FORWARDING...
+  resultArea   String  // e.g. "Assigned Inquiry Resolution Outcome"
+  weightage    Float   @default(10) // % weight within the profile
+  measurementMethod String?
+  targetValue  Float   @default(100)
+  qualityGateEnabled Boolean @default(true)
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([roleProfile, isActive])
+}
+
+// One achieved (or damaged) RESULT. Final credit = resultValue × qualityGate%.
+model ResultRecord {
+  id           String  @id @default(cuid())
+  userId       String
+  departmentId String?
+  roleProfile  String?
+  resultType   String  // INQUIRY_CONVERTED, SHIPMENT_COMPLETED, CLOSING_PROTECTED, CUSTOMS_SOLVED, GP_PROTECTED, CUSTOMER_RETAINED, COMPLAINT_AVOIDED, COST_AVOIDED, TRANSLOADING_COMPLETED, SOP_IMPROVED, RESULT_DAMAGE...
+  resultArea   String? // which ResultKPI area it counts toward
+  period       String  // "2026-07"
+  relatedJobNo String?
+  relatedCustomer String?
+  resultStatus String  @default("SUBMITTED") // SUBMITTED | APPROVED | REJECTED
+  resultValue  Float   @default(100) // achievement of the result (0-120)
+  qualityGatePercent Float @default(100) // 100 clean · 80 minor internal fix · 50 complaint · 0-50 extra cost · 0 hidden issue
+  finalResultScore   Float @default(0)  // resultValue × qualityGate%
+  businessImpact String?
+  evidenceUrl   String?
+  diamondsAwarded Int  @default(0)
+  approvedBy    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([userId, period])
+  @@index([resultStatus])
+}
+
+// Inquiries are measured ONLY when assigned. Score = resolved / due.
+model AssignedInquiry {
+  id           String  @id @default(cuid())
+  inquiryNo    String
+  customerName String?
+  inquiryType  String  @default("GENERAL") // RATE | CUSTOMS | STATUS | NEW_LEAD | DOCUMENT | COMPLAINT | GENERAL
+  assignedToId String
+  assignedById String
+  dueAt        DateTime?
+  status       String  @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | LOST
+  closureType  String? // QUOTE_SENT | ANSWERED_NEXT_ACTION | HANDED_TO_SALES | AWAITING_AGENT_RATE | NO_RESPONSE_LOST | UPDATE_COMPLETED
+  closedAt     DateTime?
+  followUpProofUrl String?
+  lostReason   String?
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([assignedToId, status])
+}
+
+// Monthly workload snapshot — balance/capacity view, not a KPI score.
+model WorkloadIndicator {
+  id             String @id @default(cuid())
+  userId         String
+  month          String
+  validJobCount  Int    @default(0)
+  caseCreditTotal Float @default(0)
+  workloadStatus String @default("BALANCED") // OVERLOADED | BALANCED | UNDERLOADED
+  overloadFlag   Boolean @default(false)
+  underloadFlag  Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@unique([userId, month])
+}
+
+// Team head leadership measured by whether the TEAM improved, not sessions held.
+model TeamHeadDevelopmentResult {
+  id          String @id @default(cuid())
+  teamHeadId  String
+  month       String
+  teamScoreImprovement    Float   @default(0) // pts vs previous month
+  repeatedMistakeReduction Float  @default(0) // % or count reduction
+  backupPersonReady        Boolean @default(false)
+  juniorStaffIndependent   Boolean @default(false)
+  inquiryBacklogReduction  Float   @default(0)
+  sopImpactResult          String?
+  evidenceUrl String?
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([teamHeadId, month])
+}

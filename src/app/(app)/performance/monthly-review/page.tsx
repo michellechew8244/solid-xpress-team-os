@@ -47,9 +47,11 @@ export default async function MonthlyReviewPage({ searchParams }: { searchParams
 
   const bonusShare = bonusShares.reduce((s, b) => s + (b.excluded ? 0 : b.amount), 0);
   const COMPONENT_LABELS: Record<keyof typeof INDIVIDUAL_WEIGHTS, string> = {
-    company: "Company contribution", department: "Department score", personalKpi: "Personal KPI",
-    accuracy: "Accuracy / quality", attendance: "Attendance / discipline", teamwork: "Teamwork",
-    proposals: "Proposal / improvement", learning: "Learning / growth",
+    businessResult: "Business result (outcomes delivered)",
+    customerOutcome: "Customer / internal outcome",
+    accuracyRisk: "Accuracy & risk control",
+    contribution: "Contribution / improvement",
+    discipline: "Discipline support",
   };
 
   return (

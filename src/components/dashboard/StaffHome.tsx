@@ -67,15 +67,24 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
 
   return (
     <div className="space-y-6">
-      {/* 🗂️ My monthly performance strip (company-linked score) */}
+      {/* 🎯 My RESULT performance strip — results are the KPI, workload is context */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <StatCard label="My Monthly Score" value={`${perf.score} (${perf.grade})`} icon="🗂️" rag={perf.score >= 80 ? "ok" : perf.score >= 70 ? "warn" : "danger"} />
-        <StatCard label="My Valid Jobs" value={perf.jobTarget ? `${perf.validJobs} / ${perf.jobTarget}` : perf.validJobs} icon="📦" rag={perf.jobTarget === 0 || perf.validJobs >= perf.jobTarget ? "ok" : "warn"} />
-        <StatCard label="Job Achievement" value={`${Math.round(perf.jobVolumePct)}%`} icon="🎯" rag={perf.jobVolumePct >= 100 ? "ok" : perf.jobVolumePct > 0 ? "warn" : "danger"} />
+        <StatCard label="My Result Score" value={`${perf.score} (${perf.grade})`} icon="🎯" rag={perf.score >= 80 ? "ok" : perf.score >= 70 ? "warn" : "danger"} />
+        <StatCard
+          label="Inquiry Resolution"
+          value={perf.inquiryRatePct !== null ? `${perf.inquiryRatePct}%` : "—"}
+          sub={perf.inquiryRatePct === null ? "no assigned inquiries due" : "resolved ÷ due assigned"}
+          icon="📨"
+          rag={perf.inquiryRatePct === null || perf.inquiryRatePct >= 90 ? "ok" : perf.inquiryRatePct >= 70 ? "warn" : "danger"}
+        />
+        <StatCard label="Quality Gate" value={`${perf.avgQualityGate}%`} sub={`${perf.resultRecords} approved results`} icon="🛡️" rag={perf.avgQualityGate >= 95 ? "ok" : "warn"} />
         <Card className="flex items-center justify-center text-center">
           <div>
-            <Link href="/performance/monthly-review" className="text-sm font-bold text-brand-700 hover:underline">🗂️ My Performance Card →</Link>
-            <div className="mt-0.5 text-[11px] text-ink-muted"><Link href="/ai-performance-coach" className="hover:underline">🤖 AI: how to improve my score</Link></div>
+            <Link href="/results" className="text-sm font-bold text-brand-700 hover:underline">🎯 Log my results →</Link>
+            <div className="mt-0.5 text-[11px] text-ink-muted">
+              workload: {perf.validJobs}{perf.jobTarget ? `/${perf.jobTarget}` : ""} jobs ·{" "}
+              <Link href="/performance/monthly-review" className="hover:underline">performance card</Link>
+            </div>
           </div>
         </Card>
       </div>

@@ -30,6 +30,7 @@ export function AICoachPanel({ month, canBoss, canManage, departments, people }:
     { key: "BOSS_MONTHLY", label: "📊 Monthly boss report", who: "boss" },
     { key: "RISK", label: "🚨 Risk detection (billing / commission / deductions)", who: "boss" },
     { key: "DEPARTMENT", label: "🏬 Department analysis", who: "manager" },
+    { key: "RESULTS", label: "🏁 Results analysis (outcomes vs workload)", who: "manager" },
     { key: "KPI_ADVICE", label: "🎯 KPI setting advice (expertise + your data)", who: "manager" },
     { key: "COACHING", label: "🎓 Coaching message draft", who: "manager" },
     { key: "STAFF", label: "👤 My performance analysis", who: "all" },

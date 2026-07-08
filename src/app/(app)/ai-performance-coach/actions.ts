@@ -6,7 +6,7 @@ import { isBoss } from "@/lib/rbac";
 import {
   generateCompanyPerformanceAnalysis, generateDepartmentPerformanceAnalysis,
   generateStaffPerformanceAnalysis, generateCoachingSuggestion,
-  generateMonthlyBossReport, detectPerformanceRisk, generateKPISettingAdvice,
+  generateMonthlyBossReport, detectPerformanceRisk, generateKPISettingAdvice, generateResultsAnalysis,
 } from "@/lib/ai-coach";
 import { currentPeriod } from "@/lib/enums";
 
@@ -29,6 +29,9 @@ export async function runAnalysis(fd: FormData): Promise<AIResult> {
       case "BOSS_MONTHLY":
         if (!boss) return { ok: false, error: "The monthly boss report is for Boss / Management." };
         return { ok: true, text: await generateMonthlyBossReport(month, s.id) };
+      case "RESULTS":
+        if (!boss && s.role !== "HR_ADMIN" && !head) return { ok: false, error: "Results analysis is for managers." };
+        return { ok: true, text: await generateResultsAnalysis(month, s.id) };
       case "RISK":
         if (!boss && s.role !== "FINANCE_ADMIN") return { ok: false, error: "Risk detection is for Boss / Finance." };
         return { ok: true, text: await detectPerformanceRisk(month, s.id) };

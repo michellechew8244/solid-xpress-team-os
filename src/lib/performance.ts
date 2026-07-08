@@ -36,15 +36,17 @@ export const DEPARTMENT_WEIGHTS = {
   proposals: 5,
 } as const;
 
+/**
+ * RESULT-ORIENTED core formula: results are the KPI, tasks are evidence.
+ * Business Result 40% + Customer/Internal Outcome 25% + Accuracy & Risk 20% +
+ * Contribution/Improvement 10% + Discipline Support 5%.
+ */
 export const INDIVIDUAL_WEIGHTS = {
-  company: 10,
-  department: 20,
-  personalKpi: 40,
-  accuracy: 10,
-  attendance: 5,
-  teamwork: 5,
-  proposals: 5,
-  learning: 5,
+  businessResult: 40,
+  customerOutcome: 25,
+  accuracyRisk: 20,
+  contribution: 10,
+  discipline: 5,
 } as const;
 
 /** Company achievement multiplier bands (also used for department bonus). */
@@ -307,10 +309,14 @@ export async function saveDepartmentPerformance(departmentId: string, period: st
 export interface IndividualComputation {
   userId: string;
   period: string;
-  components: { company: number; department: number; personalKpi: number; accuracy: number; attendance: number; teamwork: number; proposals: number; learning: number };
+  components: { businessResult: number; customerOutcome: number; accuracyRisk: number; contribution: number; discipline: number };
+  /** Workload indicators — fairness context only, NOT the KPI. */
   validJobs: number;
   jobTarget: number;
   jobVolumePct: number;
+  resultRecords: number;
+  inquiryRatePct: number | null; // null = no assigned inquiries due
+  avgQualityGate: number;
   score: number;
   grade: string;
   positionName: string | null;
@@ -330,42 +336,58 @@ export async function positionForUser(userId: string) {
 }
 
 export async function computeIndividualPerformance(userId: string, period = currentPeriod()): Promise<IndividualComputation> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { departmentId: true } });
+  // Lazy import avoids a circular dependency (result-kpi uses nothing from here).
+  const { resultBreakdown } = await import("./result-kpi");
   const [y, m] = period.split("-").map(Number);
   const monthStart = new Date(Date.UTC(y, (m || 1) - 1, 1));
   const monthEnd = new Date(Date.UTC(y, m || 1, 1));
 
-  const [company, dept, personalKpi, jobs, jobAgg, attendance, proposals, trainingDone, position] = await Promise.all([
-    computeCompanyPerformance(period),
-    user?.departmentId ? computeDepartmentPerformance(user.departmentId, period) : Promise.resolve(null),
+  const [results, personalKpi, jobs, jobAgg, attendance, proposals, complaints, riskCases, position] = await Promise.all([
+    resultBreakdown(userId, period),
     avgKpiAchievement(period, [userId]),
     validJobCount(userId, period),
     prisma.jobHandlingRecord.aggregate({ where: { userId, jobMonth: period }, _sum: { errorCount: true }, _avg: { qualityScore: true }, _count: true }),
     attendanceDisciplinePct(period, [userId]),
     prisma.proposal.count({ where: { submittedById: userId, status: { in: ["ACCEPTED", "IMPLEMENTED", "REWARDED"] }, updatedAt: { gte: monthStart, lt: monthEnd } } }),
-    prisma.trainingCompletion.count({ where: { userId, passed: true, completedAt: { gte: monthStart, lt: monthEnd } } }),
+    prisma.deductionCase.count({ where: { userId, status: "APPROVED", category: "CUSTOMER_SERVICE", updatedAt: { gte: monthStart, lt: monthEnd } } }),
+    prisma.deductionCase.count({ where: { userId, status: "APPROVED", severity: { in: ["HIGH", "CRITICAL", "RED_LINE"] }, updatedAt: { gte: monthStart, lt: monthEnd } } }),
     positionForUser(userId),
   ]);
 
+  // Workload context (indicator only — never the KPI itself).
   const jobTarget = position?.minJobTarget ?? 0;
   const volumePct = jobTarget > 0
     ? jobVolumeScore(jobs, jobTarget, position?.zeroBandBelow ?? Math.floor(jobTarget * 0.8), position?.cap110At ?? Math.round(jobTarget * 1.25), position?.volumeCapPct ?? 120)
     : 100;
 
-  const errs = jobAgg._sum.errorCount ?? 0;
-  const accuracy = jobAgg._count === 0 ? 100 : Math.max(0, Math.min(110, Math.round(((jobAgg._count - errs) / jobAgg._count) * (jobAgg._avg.qualityScore ?? 100))));
+  // 1) BUSINESS RESULT (40%): approved result records (quality-gated) and
+  //    assigned-inquiry resolution. Falls back to approved KPI results while a
+  //    team has no result records yet, so the system degrades gracefully.
+  const hasResultData = results.recordCount > 0 || results.inquiry.due > 0;
+  const businessResult = hasResultData
+    ? results.resultScore
+    : Math.min(personalKpi || (jobTarget > 0 ? Math.min(volumePct, 100) : 0), 120);
 
-  const components = {
-    company: Math.min(company.score, 120),
-    department: dept ? Math.min(dept.score, 120) : 100,
-    // Personal KPI blends approved KPI results with job-volume achievement when a job target exists.
-    personalKpi: jobTarget > 0 ? Math.round((Math.min(personalKpi || volumePct, 120) + volumePct) / 2) : Math.min(personalKpi || 0, 120),
-    accuracy,
-    attendance: Math.min(110, attendance),
-    teamwork: 100, // manual rating hook (defaults to full)
-    proposals: Math.min(120, proposals > 0 ? 100 + Math.min(20, (proposals - 1) * 10) : 60),
-    learning: trainingDone > 0 ? 100 : 70,
-  };
+  // 2) CUSTOMER / INTERNAL OUTCOME (25%): inquiry resolution + complaint control.
+  const inquiryPct = results.inquiry.due > 0 ? results.inquiry.ratePct : null;
+  const complaintControl = Math.max(0, 100 - complaints * 25);
+  const customerOutcome = inquiryPct !== null
+    ? Math.round(inquiryPct * 0.6 + complaintControl * 0.4)
+    : complaintControl;
+
+  // 3) ACCURACY & RISK CONTROL (20%): error-free quality-weighted work minus
+  //    approved high-severity risk cases.
+  const errs = jobAgg._sum.errorCount ?? 0;
+  const baseAccuracy = jobAgg._count === 0 ? 100 : Math.max(0, Math.min(110, Math.round(((jobAgg._count - errs) / jobAgg._count) * (jobAgg._avg.qualityScore ?? 100))));
+  const accuracyRisk = Math.max(0, Math.round((baseAccuracy * results.avgQualityGate) / 100) - riskCases * 15);
+
+  // 4) CONTRIBUTION / IMPROVEMENT (10%): accepted/implemented proposals & SOP results.
+  const contribution = Math.min(120, proposals > 0 ? 100 + Math.min(20, (proposals - 1) * 10) : 60);
+
+  // 5) DISCIPLINE SUPPORT (5%): attendance.
+  const discipline = Math.min(110, attendance);
+
+  const components = { businessResult: Math.min(businessResult, 120), customerOutcome: Math.min(customerOutcome, 120), accuracyRisk: Math.min(accuracyRisk, 110), contribution, discipline };
 
   const score = Math.round(
     (Object.keys(INDIVIDUAL_WEIGHTS) as (keyof typeof INDIVIDUAL_WEIGHTS)[]).reduce(
@@ -374,7 +396,15 @@ export async function computeIndividualPerformance(userId: string, period = curr
     ) * 10,
   ) / 10;
 
-  return { userId, period, components, validJobs: jobs, jobTarget, jobVolumePct: volumePct, score, grade: gradeForScore(score), positionName: position?.name ?? null };
+  return {
+    userId, period, components,
+    validJobs: jobs, jobTarget, jobVolumePct: volumePct,
+    resultRecords: results.recordCount,
+    inquiryRatePct: inquiryPct,
+    avgQualityGate: results.avgQualityGate,
+    score, grade: gradeForScore(score),
+    positionName: results.profileType ?? position?.name ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------

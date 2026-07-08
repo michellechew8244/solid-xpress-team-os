@@ -110,19 +110,20 @@ export async function generateStaffPerformanceAnalysis(userId: string, month = c
   const comp = ind.components;
   const weakest = (Object.entries(comp) as [string, number][]).sort((a, b) => a[1] - b[1]).slice(0, 3);
   const actions: string[] = [];
-  if (ind.jobTarget > 0 && ind.validJobs < ind.jobTarget) actions.push(`Log and complete ${ind.jobTarget - ind.validJobs} more valid jobs to hit your ${ind.jobTarget}-job minimum (currently ${ind.validJobs}).`);
-  if (comp.proposals < 100) actions.push(`Submit one improvement proposal — an accepted idea is +100 💎 and boosts your proposal component (now ${pct(comp.proposals)}).`);
-  if (comp.attendance < 100) actions.push(`Protect your attendance streak — on-time check-ins raise your discipline score (now ${pct(comp.attendance)}).`);
-  if (comp.learning < 100) actions.push(`Finish one training in the Training Centre to lift your learning score (now ${pct(comp.learning)}).`);
-  if (comp.accuracy < 100) actions.push(`Reduce errors: your accuracy component is ${pct(comp.accuracy)} — double-check documents/handovers before submitting.`);
-  while (actions.length < 3) actions.push("Keep your current pace — claim missions in the Game Centre for extra diamonds.");
+  if (ind.inquiryRatePct !== null && ind.inquiryRatePct < 100) actions.push(`Close your open assigned inquiries — resolution is ${pct(ind.inquiryRatePct)}; every proper closure (quote sent, answered, handed to Sales, lost-reason recorded) lifts your result score.`);
+  if (comp.businessResult < 100) actions.push(`Log your RESULTS (not just tasks) in the Result Centre — completed shipments, protected closings, solved customs cases count toward your business result (now ${pct(comp.businessResult)}).`);
+  if (ind.avgQualityGate < 100) actions.push(`Lift your quality gate (now ${pct(ind.avgQualityGate)}): a clean result counts 100%, a customer complaint halves it — double-check before it leaves you.`);
+  if (comp.contribution < 100) actions.push(`Submit one improvement proposal — an implemented idea with impact is up to +1,000 💎 and lifts contribution (now ${pct(comp.contribution)}).`);
+  if (comp.discipline < 100) actions.push(`Protect your attendance streak — discipline supports 5% of your score (now ${pct(comp.discipline)}).`);
+  while (actions.length < 3) actions.push("Keep your current pace — log every good result so it counts.");
 
   const lines = [
     `## 👤 ${user.name} — My Performance (${month})`,
     ``,
     `**Facts:**`,
-    `- Monthly score: **${ind.score} (grade ${ind.grade})**${ind.positionName ? ` · position: ${ind.positionName}` : ""}`,
-    ind.jobTarget > 0 ? `- Valid jobs: **${ind.validJobs}/${ind.jobTarget}** (volume score ${pct(ind.jobVolumePct)})` : `- Valid jobs logged: ${ind.validJobs} (no minimum target for your position)`,
+    `- Monthly RESULT score: **${ind.score} (grade ${ind.grade})**${ind.positionName ? ` · profile: ${ind.positionName}` : ""}`,
+    `- Approved results: ${ind.resultRecords} · quality gate avg ${pct(ind.avgQualityGate)}${ind.inquiryRatePct !== null ? ` · inquiry resolution ${pct(ind.inquiryRatePct)}` : ""}`,
+    ind.jobTarget > 0 ? `- Workload (indicator only): ${ind.validJobs}/${ind.jobTarget} valid jobs` : `- Workload (indicator only): ${ind.validJobs} valid jobs`,
     `- Diamonds this month: **+${earned._sum.amount ?? 0} / −${Math.abs(deducted._sum.amount ?? 0)}** · wallet ${user.currentPoints.toLocaleString()} 💎`,
     deductions.length ? `- Biggest deductions: ${deductions.map((d) => `${d.reason} (${d.amount})`).join("; ")}` : `- No deductions this month 🎉`,
     ``,
@@ -319,7 +320,62 @@ export async function generateKPISettingAdvice(departmentId: string, month = cur
   return text;
 }
 
-/** 8. Sales commission risk brief for one user. */
+/** 8. RESULTS analysis: outcomes vs workload, unresolved inquiries, repeated
+ *  damage, workload rebalancing — facts / possible causes / suggested actions. */
+export async function generateResultsAnalysis(month = currentPeriod(), generatedBy = "system"): Promise<string> {
+  const { workloadIndicator } = await import("./result-kpi");
+  const staff = await prisma.user.findMany({
+    where: { isActive: true, role: { notIn: ["SUPER_ADMIN", "MANAGEMENT"] }, NOT: { email: { endsWith: "@solidxpress.system" } } },
+    select: { id: true, name: true },
+  });
+  const rows = await Promise.all(staff.map(async (u) => {
+    const [ind, wl] = await Promise.all([computeIndividualPerformance(u.id, month), workloadIndicator(u.id, month)]);
+    return { name: u.name, id: u.id, score: ind.score, inquiry: ind.inquiryRatePct, gate: ind.avgQualityGate, results: ind.resultRecords, credits: wl.caseCredits, wl: wl.status };
+  }));
+  const withWork = rows.filter((r) => r.credits > 0 || r.results > 0);
+  const medCredits = withWork.length ? [...withWork].sort((a, b) => a.credits - b.credits)[Math.floor(withWork.length / 2)].credits : 0;
+
+  const goodOutcomes = rows.filter((r) => r.score >= 80 && r.results > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+  const weakDespiteWork = withWork.filter((r) => r.credits >= medCredits && r.score < 70);
+  const efficientLight = withWork.filter((r) => r.credits < medCredits && r.score >= 80 && r.gate >= 95);
+
+  const [openInquiries, damage] = await Promise.all([
+    prisma.assignedInquiry.findMany({ where: { status: { in: ["OPEN", "IN_PROGRESS"] }, dueAt: { lt: new Date() } }, select: { inquiryNo: true, assignedToId: true, customerName: true }, take: 20 }),
+    prisma.deductionCase.groupBy({ by: ["userId", "category"], where: { status: "APPROVED", createdAt: { gte: new Date(Date.now() - 90 * 864e5) } }, _count: true }),
+  ]);
+  const nameById = new Map(staff.map((s2) => [s2.id, s2.name]));
+  const repeatDamage = damage.filter((d) => d._count >= 2);
+  const overloaded = rows.filter((r) => r.wl === "OVERLOADED");
+  const underloaded = rows.filter((r) => r.wl === "UNDERLOADED");
+
+  const lines = [
+    `## 🎯 Results Analysis — ${month}`,
+    ``,
+    `**Facts (system data):**`,
+    goodOutcomes.length ? `- Best outcomes: ${goodOutcomes.map((r) => `${r.name} (${r.score}, gate ${r.gate}%)`).join(", ")}` : `- No staff has approved results yet this month — results may not be logged.`,
+    weakDespiteWork.length ? `- Weak result despite high workload: ${weakDespiteWork.map((r) => `${r.name} (${r.credits} credits, score ${r.score})`).join(", ")}` : `- No high-workload/low-result cases detected.`,
+    efficientLight.length ? `- Light workload but high quality: ${efficientLight.map((r) => `${r.name} (score ${r.score}, gate ${r.gate}%)`).join(", ")} — capacity for more.` : ``,
+    openInquiries.length ? `- Overdue unresolved inquiries: ${openInquiries.slice(0, 8).map((q) => `${q.inquiryNo} (${nameById.get(q.assignedToId) ?? "?"}${q.customerName ? `, ${q.customerName}` : ""})`).join("; ")}${openInquiries.length > 8 ? ` +${openInquiries.length - 8} more` : ""} — these customers are at risk.` : `- No overdue inquiries. ✅`,
+    repeatDamage.length ? `- Repeated result damage (90 days): ${repeatDamage.map((d) => `${nameById.get(d.userId) ?? "?"} · ${d.category.replace(/_/g, " ").toLowerCase()} ×${d._count}`).join("; ")}` : `- No repeated damage patterns.`,
+    overloaded.length || underloaded.length ? `- Workload balance: ${overloaded.map((r) => `${r.name} 🔥`).join(", ")}${overloaded.length && underloaded.length ? " vs " : ""}${underloaded.map((r) => `${r.name} 💤`).join(", ")}` : `- Workload looks balanced.`,
+    ``,
+    `**Possible causes (review with the team):**`,
+    ...(weakDespiteWork.length ? [`- High workload + low result usually means tasks without closure — check whether ${weakDespiteWork[0].name}'s cases get RESOLVED or just handled.`] : []),
+    ...(openInquiries.length ? [`- Overdue inquiries may signal unclear allocation — the Team Head owns allocation under their KPI.`] : []),
+    ...(repeatDamage.length ? [`- Repeated same-category damage points to a missing SOP or training gap, not just individual carelessness.`] : []),
+    ...(!weakDespiteWork.length && !openInquiries.length && !repeatDamage.length ? [`- No obvious risk pattern this month.`] : []),
+    ``,
+    `**Suggested actions (next 3):**`,
+    `1. ${openInquiries.length ? `Clear the ${openInquiries.length} overdue inquiries today — assign owners and due dates in the Inquiries page.` : "Keep inquiry allocation tight — assign every new inquiry with a due date."}`,
+    `2. ${overloaded.length && underloaded.length ? `Rebalance workload: move cases from ${overloaded[0].name} to ${underloaded[0].name}.` : weakDespiteWork.length ? `Coach ${weakDespiteWork[0].name} on closing results, not just doing tasks (quality gate + closure types).` : "Recognise the top result performer on the Achievement Wall."}`,
+    `3. ${repeatDamage.length ? `Open an SOP fix for the repeated ${repeatDamage[0].category.replace(/_/g, " ").toLowerCase()} damage — an implemented SOP improvement earns +200 💎.` : "Ask each staff to log at least one RESULT this week so scores reflect real outcomes."}`,
+  ];
+  const text = lines.filter(Boolean).join("\n") + DISCLAIMER;
+  await log("RESULTS", month, text, generatedBy);
+  return text;
+}
+
+/** 9. Sales commission risk brief for one user. */
 export async function generateCommissionRiskBrief(userId: string, month = currentPeriod()): Promise<string> {
   const gp = await collectedGPForUser(userId, month);
   return [

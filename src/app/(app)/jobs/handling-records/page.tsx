@@ -37,14 +37,16 @@ export default async function JobHandlingPage({ searchParams }: { searchParams: 
   const myTarget = myPosition?.minJobTarget ?? 0;
   const myVolumeScore = myTarget > 0 ? jobVolumeScore(myValid, myTarget, myPosition!.zeroBandBelow, myPosition!.cap110At, myPosition!.volumeCapPct) : null;
 
-  // Per-staff summary for managers.
+  // Per-staff summary for managers, with case-credit workload fairness flags.
+  const { workloadIndicator } = await import("@/lib/result-kpi");
   const summary = manager
-    ? scopeUsers.map((u) => {
+    ? (await Promise.all(scopeUsers.map(async (u) => {
         const mine = records.filter((r) => r.userId === u.id);
         const valid = mine.filter((r) => r.isValidForKPI && ["COMPLETED", "IN_PROGRESS"].includes(r.status)).length;
         const errors = mine.reduce((s, r) => s + r.errorCount, 0);
-        return { ...u, total: mine.length, valid, errors };
-      }).filter((x) => x.total > 0 || focusUserId === x.id)
+        const wl = await workloadIndicator(u.id, period);
+        return { ...u, total: mine.length, valid, errors, credits: wl.caseCredits, wlStatus: wl.status, benchmark: wl.benchmark };
+      }))).filter((x) => x.total > 0 || focusUserId === x.id)
     : [];
 
   return (
@@ -75,8 +77,12 @@ export default async function JobHandlingPage({ searchParams }: { searchParams: 
           <div className="flex flex-wrap gap-2">
             {summary.map((u) => (
               <a key={u.id} href={`/jobs/handling-records?period=${period}&user=${u.id}`} className="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
-                <div className="font-semibold text-ink">{u.name}</div>
-                <div className="text-xs text-ink-muted">{u.valid} valid / {u.total} logged{u.errors ? ` · ${u.errors} errors` : ""}</div>
+                <div className="font-semibold text-ink">
+                  {u.name}
+                  {u.wlStatus === "OVERLOADED" && <span className="ml-1 text-xs text-danger" title="Workload above benchmark — consider rebalancing">🔥 overloaded</span>}
+                  {u.wlStatus === "UNDERLOADED" && <span className="ml-1 text-xs text-amber-600" title="Workload below benchmark">💤 light</span>}
+                </div>
+                <div className="text-xs text-ink-muted">{u.valid} valid / {u.total} logged{u.errors ? ` · ${u.errors} errors` : ""} · {u.credits} credits{u.benchmark ? `/${u.benchmark}` : ""}</div>
               </a>
             ))}
           </div>

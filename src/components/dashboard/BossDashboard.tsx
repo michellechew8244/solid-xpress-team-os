@@ -20,6 +20,22 @@ export async function BossDashboard({ name }: { name: string }) {
     prisma.bonusPool.findUnique({ where: { period }, select: { poolAmount: true, status: true } }),
   ]);
 
+  // 🎯 Result-oriented snapshot: per-staff result score, inquiry resolution,
+  // quality gate and workload flags (workload = fairness context, not KPI).
+  const { computeIndividualPerformance } = await import("@/lib/performance");
+  const { workloadIndicator } = await import("@/lib/result-kpi");
+  const resultStaff = await prisma.user.findMany({
+    where: { isActive: true, role: { notIn: ["SUPER_ADMIN", "MANAGEMENT"] }, NOT: { email: { endsWith: "@solidxpress.system" } } },
+    select: { id: true, name: true }, orderBy: { name: "asc" }, take: 15,
+  });
+  const resultRows = await Promise.all(resultStaff.map(async (u) => {
+    const [ind, wl] = await Promise.all([computeIndividualPerformance(u.id, period), workloadIndicator(u.id, period)]);
+    return { ...u, score: ind.score, grade: ind.grade, inquiry: ind.inquiryRatePct, gate: ind.avgQualityGate, results: ind.resultRecords, wl: wl.status, credits: wl.caseCredits };
+  }));
+  resultRows.sort((a, b) => b.score - a.score);
+  const damageSummary = await prisma.pointsTransaction.aggregate({ where: { period, sourceType: "DEDUCTION_CASE", amount: { lt: 0 } }, _sum: { amount: true }, _count: true });
+  const resultDiamonds = await prisma.pointsTransaction.aggregate({ where: { period, sourceType: "RESULT_REWARD", amount: { gt: 0 } }, _sum: { amount: true } });
+
   const queueCards: { label: string; value: number }[] = [
     { label: "Billing pending", value: d.queues.billingPending },
     { label: "Collection pending", value: d.queues.collectionPending },
@@ -52,6 +68,39 @@ export async function BossDashboard({ name }: { name: string }) {
           📦 Staff logging jobs this month: {jobsBelow.length} · <Link href="/jobs/handling-records" className="text-brand-600">job records</Link> ·{" "}
           <Link href="/ai-performance-coach" className="text-brand-600">🤖 AI analysis & risk detection</Link> ·{" "}
           <Link href="/performance/deductions" className="text-brand-600">⚠️ deduction cases</Link>
+        </div>
+      </Card>
+
+      {/* 🎯 Result-oriented staff snapshot */}
+      <Card>
+        <SectionTitle action={<Link href="/results" className="text-xs font-semibold text-brand-600">Result Centre →</Link>}>
+          🎯 Result Scores — {period}
+        </SectionTitle>
+        <div className="mb-2 text-xs text-ink-muted">
+          Result diamonds paid: <b className="text-ok">+{resultDiamonds._sum.amount ?? 0} 💎</b> · result damage deductions: <b className="text-danger">{damageSummary._sum.amount ?? 0} 💎</b> ({damageSummary._count} cases) ·{" "}
+          <Link href="/inquiries" className="text-brand-600">inquiries</Link> · <Link href="/goals/cs-profiles" className="text-brand-600">role profiles</Link>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-xs uppercase text-ink-muted">
+                <th className="py-1.5 pr-2">Staff</th><th className="px-2">Result score</th><th className="px-2">Inquiries</th><th className="px-2">Quality gate</th><th className="px-2">Results</th><th className="px-2">Workload</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {resultRows.map((r) => (
+                <tr key={r.id}>
+                  <td className="py-1.5 pr-2 font-medium">{r.name}</td>
+                  <td className="px-2"><Pill value={r.score >= 80 ? "OK" : r.score >= 70 ? "WARN" : "DANGER"} label={`${r.score} (${r.grade})`} /></td>
+                  <td className="px-2 text-xs">{r.inquiry !== null ? `${r.inquiry}%` : "—"}</td>
+                  <td className="px-2 text-xs">{r.gate}%</td>
+                  <td className="px-2 text-xs">{r.results}</td>
+                  <td className="px-2 text-xs">{r.credits} cr {r.wl === "OVERLOADED" ? "🔥" : r.wl === "UNDERLOADED" ? "💤" : "⚖️"}</td>
+                </tr>
+              ))}
+              {resultRows.length === 0 && <tr><td colSpan={6} className="py-3 text-center text-xs text-ink-muted">No active staff yet.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </Card>
 
