@@ -4,6 +4,7 @@ import { isBoss } from "@/lib/rbac";
 import { currentPeriod } from "@/lib/enums";
 import { computeIndividualPerformance, computeDepartmentPerformance, computeCompanyPerformance, coachingTriggers, INDIVIDUAL_WEIGHTS } from "@/lib/performance";
 import { Card, PageHeader, SectionTitle, StatCard, Pill, Avatar } from "@/components/ui";
+import { classForScore } from "@/lib/staff-class";
 
 const rm = (n: number) => `RM ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
@@ -79,6 +80,9 @@ export default async function MonthlyReviewPage({ searchParams }: { searchParams
           <div className="ml-auto flex items-center gap-2">
             <span className="text-3xl font-black text-brand-700">{ind.score}</span>
             <Pill value={ind.score >= 80 ? "OK" : ind.score >= 70 ? "WARN" : "DANGER"} label={`Grade ${ind.grade}`} />
+            <span className={`badge ${classForScore(ind.score).badge}`} title={classForScore(ind.score).meaning}>
+              {classForScore(ind.score).emoji} {classForScore(ind.score).label}
+            </span>
           </div>
         </div>
       </Card>

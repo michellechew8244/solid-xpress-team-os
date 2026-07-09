@@ -50,6 +50,7 @@ export const NAV: NavGroup[] = [
       { href: "/inquiries", label: "Assigned Inquiries", icon: "📨" },
       { href: "/goals/cs-profiles", label: "CS Role Profiles", icon: "👥", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
       { href: "/performance/monthly-review", label: "Monthly Performance Card", icon: "🗂️" },
+      { href: "/performance/staff-classes", label: "Staff Classes (A/B/C)", icon: "🏷️", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
       { href: "/performance/deductions", label: "Deduction Cases", icon: "⚠️" },
       { href: "/performance/deduction-rules", label: "Deduction Rule Centre", icon: "⚖️", roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
       { href: "/commission", label: "Sales Commission", icon: "💰" },

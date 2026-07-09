@@ -7,6 +7,7 @@ import { kpiPoints } from "@/lib/points";
 import { Avatar, Card, Pill, Progress, SectionTitle, StatCard } from "@/components/ui";
 import { AiPanel } from "@/components/AiPanel";
 import { computeIndividualPerformance } from "@/lib/performance";
+import { classForScore } from "@/lib/staff-class";
 
 const GRADE_PILL: Record<string, string> = {
   A_PLUS: "text-green-700", A: "text-emerald-700", B: "text-sky-700", C: "text-amber-700", D: "text-orange-700", E: "text-rose-700",
@@ -69,7 +70,13 @@ export async function StaffHome({ userId, name }: { userId: string; name: string
     <div className="space-y-6">
       {/* 🎯 My RESULT performance strip — results are the KPI, workload is context */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <StatCard label="My Result Score" value={`${perf.score} (${perf.grade})`} icon="🎯" rag={perf.score >= 80 ? "ok" : perf.score >= 70 ? "warn" : "danger"} />
+        <StatCard
+          label="My Result Score"
+          value={`${perf.score} (${perf.grade})`}
+          sub={<span className={`badge ${classForScore(perf.score).badge}`}>{classForScore(perf.score).emoji} {classForScore(perf.score).label}</span>}
+          icon="🎯"
+          rag={perf.score >= 80 ? "ok" : perf.score >= 70 ? "warn" : "danger"}
+        />
         <StatCard
           label="Inquiry Resolution"
           value={perf.inquiryRatePct !== null ? `${perf.inquiryRatePct}%` : "—"}

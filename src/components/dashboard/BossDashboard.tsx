@@ -7,6 +7,7 @@ import { AiPanel } from "@/components/AiPanel";
 import { computeCompanyPerformance } from "@/lib/performance";
 import { prisma } from "@/lib/prisma";
 import { currentPeriod } from "@/lib/enums";
+import { classForScore } from "@/lib/staff-class";
 
 export async function BossDashboard({ name }: { name: string }) {
   const d = await getBossDashboard();
@@ -84,13 +85,14 @@ export async function BossDashboard({ name }: { name: string }) {
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase text-ink-muted">
-                <th className="py-1.5 pr-2">Staff</th><th className="px-2">Result score</th><th className="px-2">Inquiries</th><th className="px-2">Quality gate</th><th className="px-2">Results</th><th className="px-2">Workload</th>
+                <th className="py-1.5 pr-2">Staff</th><th className="px-2">Class</th><th className="px-2">Result score</th><th className="px-2">Inquiries</th><th className="px-2">Quality gate</th><th className="px-2">Results</th><th className="px-2">Workload</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {resultRows.map((r) => (
                 <tr key={r.id}>
                   <td className="py-1.5 pr-2 font-medium">{r.name}</td>
+                  <td className="px-2"><span className={`badge ${classForScore(r.score).badge}`}>{classForScore(r.score).emoji} {classForScore(r.score).cls}</span></td>
                   <td className="px-2"><Pill value={r.score >= 80 ? "OK" : r.score >= 70 ? "WARN" : "DANGER"} label={`${r.score} (${r.grade})`} /></td>
                   <td className="px-2 text-xs">{r.inquiry !== null ? `${r.inquiry}%` : "—"}</td>
                   <td className="px-2 text-xs">{r.gate}%</td>
@@ -98,7 +100,7 @@ export async function BossDashboard({ name }: { name: string }) {
                   <td className="px-2 text-xs">{r.credits} cr {r.wl === "OVERLOADED" ? "🔥" : r.wl === "UNDERLOADED" ? "💤" : "⚖️"}</td>
                 </tr>
               ))}
-              {resultRows.length === 0 && <tr><td colSpan={6} className="py-3 text-center text-xs text-ink-muted">No active staff yet.</td></tr>}
+              {resultRows.length === 0 && <tr><td colSpan={7} className="py-3 text-center text-xs text-ink-muted">No active staff yet.</td></tr>}
             </tbody>
           </table>
         </div>

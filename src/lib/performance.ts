@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { currentPeriod } from "./enums";
+import { classForScore, type StaffClass } from "./staff-class";
 
 /**
  * Company-performance-linked scoring engine.
@@ -319,6 +320,8 @@ export interface IndividualComputation {
   avgQualityGate: number;
   score: number;
   grade: string;
+  /** Monthly staff class: A ≥85, B 70–84, C <70 (see lib/staff-class.ts). */
+  staffClass: StaffClass;
   positionName: string | null;
 }
 
@@ -403,6 +406,7 @@ export async function computeIndividualPerformance(userId: string, period = curr
     inquiryRatePct: inquiryPct,
     avgQualityGate: results.avgQualityGate,
     score, grade: gradeForScore(score),
+    staffClass: classForScore(score).cls,
     positionName: results.profileType ?? position?.name ?? null,
   };
 }

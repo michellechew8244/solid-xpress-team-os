@@ -82,6 +82,7 @@ export const FEATURES: Record<string, FeatureDef> = {
   "results":           { label: "Result Centre", icon: "🏁", hrefs: ["/results"] },
   "inquiries":         { label: "Assigned Inquiries", icon: "📨", hrefs: ["/inquiries"] },
   "cs-profiles":       { label: "CS Role Profiles", icon: "👥", hrefs: ["/goals/cs-profiles"], roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
+  "staff-classes":     { label: "Staff Classes (A/B/C)", icon: "🏷️", hrefs: ["/performance/staff-classes"], roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN", "DEPARTMENT_HEAD"] },
   "company-goals":     { label: "Company Goal Centre", icon: "🏢", hrefs: ["/goals/company"], roles: ["SUPER_ADMIN", "MANAGEMENT"], denyOnly: true },
   "department-goals":  { label: "Department KPI Centre", icon: "🏬", hrefs: ["/goals/departments"], roles: ["SUPER_ADMIN", "MANAGEMENT", "DEPARTMENT_HEAD", "HR_ADMIN"] },
   "position-kpi":      { label: "Position KPI Setup", icon: "🎯", hrefs: ["/goals/position-kpi"], roles: ["SUPER_ADMIN", "MANAGEMENT", "HR_ADMIN"] },
